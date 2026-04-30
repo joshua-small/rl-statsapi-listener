@@ -1,0 +1,30 @@
+# Python runtime/build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local virtual environments
+.venv/
+venv/
+
+# Personal/runtime Rocket League data
+.data/
+.local/
+
+# Generated databases and logs
+*.sqlite
+*.sqlite3
+*.db
+*.db-shm
+*.db-wal
+*.log
+
+# Local OBS text-file output directories
+obs-output/
+obs_text/
+obs-text/
+
+# Local editor/session files
+.codex
+.vscode/
+*.code-workspace

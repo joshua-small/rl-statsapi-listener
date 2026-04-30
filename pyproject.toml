@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rl-statsapi-listener"
+version = "0.1.0"
+description = "Local Rocket League StatsAPI listener and OBS overlay state helper."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.scripts]
+rl-statsapi-listen = "rl_statsapi_listener.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rl_statsapi_listener*", "integrations*"]
