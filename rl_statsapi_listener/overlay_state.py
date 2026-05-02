@@ -227,7 +227,8 @@ class StatsStore:
 
     def initialize(self, reimport_snapshots: bool = False) -> None:
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
-        self.conn = sqlite3.connect(self.db_path)
+        # The web overlay server reads snapshots from a background HTTP thread.
+        self.conn = sqlite3.connect(self.db_path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.execute("PRAGMA foreign_keys = ON")
         self._create_schema()
@@ -864,6 +865,10 @@ class CurrentMatch:
     playlist_id: int | None = None
     own_team: int | None = None
     winner_team: int | None = None
+    clock: str = "0:00"
+    overtime: bool = False
+    event_name: str = "Waiting"
+    event_banner: str = ""
     players: dict[str, ObservedPlayer] = field(default_factory=dict)
     stat_values: dict[str, int] = field(default_factory=dict)
     team_scores: dict[int, int] = field(default_factory=dict)
@@ -913,11 +918,19 @@ class OverlayStatsTracker:
     def handle_message(self, message: dict[str, Any]) -> None:
         event = str(message.get("Event", "Unknown"))
         data = parse_data_field(message)
+        self.current.event_name = event
+        self._update_live_display(event, data)
 
         match_guid = _find_first_key(data, ("MatchGuid", "MatchGUID", "MatchId", "MatchID"))
         match_guid_text = _as_text(match_guid)
         if match_guid_text and match_guid_text != self.current.match_guid:
-            self.current = CurrentMatch(match_guid=match_guid_text)
+            self.current = CurrentMatch(
+                match_guid=match_guid_text,
+                clock=self.current.clock,
+                overtime=self.current.overtime,
+                event_name=self.current.event_name,
+                event_banner=self.current.event_banner if event in {"GoalScored", "MatchEnded"} else "",
+            )
 
         playlist_id = _extract_playlist_id(data)
         if playlist_id is not None:
@@ -943,6 +956,27 @@ class OverlayStatsTracker:
             self._handle_match_ended(data)
 
         self.write_overlay_files()
+
+    def _update_live_display(self, event: str, data: dict[str, Any]) -> None:
+        time_seconds = _extract_time_seconds(data)
+        if time_seconds is not None:
+            self.current.overtime = _extract_bool(data, ("bOvertime", "Overtime", "overtime")) or False
+            self.current.clock = self._format_clock(time_seconds, self.current.overtime)
+
+        if event == "GoalScored":
+            scorer = data.get("Scorer", {})
+            scorer_name = "Unknown"
+            if isinstance(scorer, dict):
+                scorer_name = _as_text(_first_value(scorer, ("Name", "PlayerName", "DisplayName", "name"))) or "Unknown"
+            self.current.event_banner = f"GOAL: {scorer_name}"
+        elif event == "MatchEnded":
+            winner_team = _to_int(data.get("WinnerTeamNum"))
+            if winner_team == 0:
+                self.current.event_banner = "MATCH ENDED - BLUE WIN"
+            elif winner_team == 1:
+                self.current.event_banner = "MATCH ENDED - ORANGE WIN"
+            else:
+                self.current.event_banner = "MATCH ENDED"
 
     def _is_self(self, player: ObservedPlayer) -> bool:
         candidates = {_normalize_token(player.unique_id), _normalize_token(player.name)}
@@ -1067,6 +1101,11 @@ class OverlayStatsTracker:
             return
 
         outputs = {
+            "clock.txt": self.current.clock,
+            "score_blue.txt": str(self.current.team_scores.get(0, 0)),
+            "score_orange.txt": str(self.current.team_scores.get(1, 0)),
+            "event_name.txt": self.current.event_name,
+            "event_banner.txt": self.current.event_banner,
             "session_wins.txt": str(self.session_wins),
             "session_losses.txt": str(self.session_losses),
             "session_streak.txt": self._format_streak(),
@@ -1088,12 +1127,63 @@ class OverlayStatsTracker:
 
         for filename, value in outputs.items():
             self._write_text_if_changed(self.obs_dir / filename, value)
+        self._write_text_if_changed(
+            self.obs_dir / "overlay_state.json",
+            json.dumps(self.get_overlay_state(), ensure_ascii=True, sort_keys=True, indent=2),
+        )
 
     def _write_text_if_changed(self, path: Path, value: str) -> None:
         if self.file_cache.get(path) == value:
             return
         path.write_text(value, encoding="utf-8")
         self.file_cache[path] = value
+
+    def get_overlay_state(self) -> dict[str, Any]:
+        return {
+            "clock": self.current.clock,
+            "overtime": self.current.overtime,
+            "scores": {
+                "blue": self.current.team_scores.get(0, 0),
+                "orange": self.current.team_scores.get(1, 0),
+            },
+            "event": {
+                "name": self.current.event_name,
+                "banner": self.current.event_banner,
+            },
+            "match": {
+                "guid": self.current.match_guid,
+                "playlist_id": self.current.playlist_id,
+                "own_team": self.current.own_team,
+                "winner_team": self.current.winner_team,
+            },
+            "session": {
+                "wins": self.session_wins,
+                "losses": self.session_losses,
+                "streak": self._format_streak(),
+                "low_fives": self.session_counts["low_fives"],
+                "high_fives": self.session_counts["high_fives"],
+                "demos": self.session_counts["demos"],
+            },
+            "career": {
+                "low_fives": self._format_number(self.store.get_stat_value("career_stat", "Low Fives")),
+                "high_fives": self._format_number(self.store.get_stat_value("career_stat", "High Fives")),
+                "demos": self._format_number(self.store.get_stat_value("career_stat", "Demolitions")),
+            },
+            "freeplay": {
+                "last_shot": self._format_speed(self.store.get_last_shot_speed()),
+                "session_best": self._format_speed(max(self.session_shots) if self.session_shots else None),
+                "all_time_best": self._format_speed(self.store.get_best_shot_speed()),
+                "avg_last_10": self._format_speed(self.store.get_last_10_avg_shot_speed()),
+            },
+            "club": {
+                "name": self.store.get_club_display(),
+                "record": self._format_club_record(),
+            },
+            "mmr": {
+                "recent": self._format_recent_mmr(),
+            },
+            "dejavu": self._get_dejavu_players(),
+        }
 
     def _format_streak(self) -> str:
         if not self.streak_kind or self.streak_count == 0:
@@ -1122,10 +1212,14 @@ class OverlayStatsTracker:
         return " / ".join(parts)
 
     def _format_dejavu_players(self) -> str:
-        if self.current.playlist_id is None or self.current.own_team is None:
-            return ""
+        lines = [player["display"] for player in self._get_dejavu_players()]
+        return "\n".join(lines[:6])
 
-        lines = []
+    def _get_dejavu_players(self) -> list[dict[str, Any]]:
+        if self.current.playlist_id is None or self.current.own_team is None:
+            return []
+
+        players = []
         for player in self.current.players.values():
             if self._is_self(player) or not player.unique_id or player.team_num is None:
                 continue
@@ -1139,9 +1233,28 @@ class OverlayStatsTracker:
             if met_count == 0 and wins == 0 and losses == 0:
                 continue
             prefix = "with" if relation == "with" else "vs"
-            lines.append(f"{player.name or player.unique_id}: {prefix} {wins}-{losses} ({met_count})")
+            display = f"{player.name or player.unique_id}: {prefix} {wins}-{losses} ({met_count})"
+            players.append(
+                {
+                    "name": player.name or player.unique_id,
+                    "relation": relation,
+                    "wins": wins,
+                    "losses": losses,
+                    "met_count": met_count,
+                    "display": display,
+                }
+            )
 
-        return "\n".join(lines[:6])
+        return players[:6]
+
+    @staticmethod
+    def _format_clock(time_seconds: int, overtime: bool) -> str:
+        minutes = max(0, time_seconds) // 60
+        seconds = max(0, time_seconds) % 60
+        clock = f"{minutes}:{seconds:02d}"
+        if overtime:
+            return f"OT {clock}"
+        return clock
 
     @staticmethod
     def _format_number(value: Any) -> str:
@@ -1225,6 +1338,26 @@ def _extract_teams(data: dict[str, Any]) -> dict[int, int]:
         if team_num is not None and score is not None:
             scores[team_num] = score
     return scores
+
+
+def _extract_time_seconds(data: dict[str, Any]) -> int | None:
+    value = _find_first_key(data, ("TimeSeconds", "SecondsRemaining", "timeSeconds", "secondsRemaining"))
+    return _to_int(value)
+
+
+def _extract_bool(data: dict[str, Any], keys: tuple[str, ...]) -> bool | None:
+    value = _find_first_key(data, keys)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return bool(value)
+    if isinstance(value, str):
+        lowered = value.strip().lower()
+        if lowered in {"true", "1", "yes", "y"}:
+            return True
+        if lowered in {"false", "0", "no", "n"}:
+            return False
+    return None
 
 
 def _extract_players(data: dict[str, Any]) -> list[ObservedPlayer]:

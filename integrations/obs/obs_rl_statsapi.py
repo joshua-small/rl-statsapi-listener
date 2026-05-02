@@ -4,7 +4,7 @@ import threading
 import time
 from datetime import datetime
 
-import obspython as obs
+import obspython as obs  # pyright: ignore[reportMissingImports]
 
 
 # OBS-configurable settings
@@ -22,7 +22,7 @@ _thread = None
 _state_lock = threading.Lock()
 _socket_timeout = 1.0
 
-state = {
+state: dict[str, str] = {
     "clock": "0:00",
     "blue_score": "0",
     "orange_score": "0",
@@ -30,12 +30,12 @@ state = {
     "status": "Disconnected",
 }
 
-team_style = {
+team_style: dict[str, dict[str, str | None]] = {
     "blue": {"text": None, "bg": None},
     "orange": {"text": None, "bg": None},
 }
 
-last_applied = {
+last_applied: dict[str, str | None] = {
     "clock": None,
     "blue_score": None,
     "orange_score": None,
@@ -43,7 +43,7 @@ last_applied = {
     "status": None,
 }
 
-last_applied_team_style = {
+last_applied_team_style: dict[str, dict[str, str | None]] = {
     "blue": {"text": None, "bg": None},
     "orange": {"text": None, "bg": None},
 }

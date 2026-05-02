@@ -16,3 +16,6 @@ rl-statsapi-listen = "rl_statsapi_listener.cli:main"
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["rl_statsapi_listener*", "integrations*"]
+
+[tool.setuptools.package-data]
+"rl_statsapi_listener.web_overlay" = ["*.html", "*.css", "*.js"]

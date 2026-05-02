@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Rocket League Stats Overlay</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <main class="overlay" aria-label="Rocket League stats overlay">
+      <section class="scorebar" aria-label="Scoreboard">
+        <div class="team team-blue">
+          <span class="team-name">Blue</span>
+          <strong id="blueScore">0</strong>
+        </div>
+        <div class="clock-shell">
+          <strong id="clock">0:00</strong>
+          <span id="eventName">Waiting</span>
+        </div>
+        <div class="team team-orange">
+          <span class="team-name">Orange</span>
+          <strong id="orangeScore">0</strong>
+        </div>
+      </section>
+
+      <section class="event-banner" id="eventBanner" hidden></section>
+
+      <section class="hud-grid" aria-label="Live stats">
+        <div class="panel">
+          <h2>Session</h2>
+          <div class="metric-row">
+            <span>W</span>
+            <strong id="sessionWins">0</strong>
+            <span>L</span>
+            <strong id="sessionLosses">0</strong>
+            <span>Streak</span>
+            <strong id="sessionStreak">0</strong>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Touch Stats</h2>
+          <div class="stat-stack">
+            <span>Low fives <strong id="sessionLowFives">0</strong></span>
+            <span>High fives <strong id="sessionHighFives">0</strong></span>
+            <span>Demos <strong id="sessionDemos">0</strong></span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Freeplay</h2>
+          <div class="stat-stack">
+            <span>Last <strong id="freeplayLast">-- kph</strong></span>
+            <span>Best <strong id="freeplayBest">-- kph</strong></span>
+            <span>All time <strong id="freeplayAllTime">-- kph</strong></span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>Club</h2>
+          <strong class="line-value" id="clubName"></strong>
+          <span class="subline" id="clubRecord"></span>
+        </div>
+
+        <div class="panel panel-wide">
+          <h2>Playlist</h2>
+          <strong class="line-value" id="recentMmr">MMR pending</strong>
+        </div>
+
+        <div class="panel panel-wide">
+          <h2>Deja-Vu</h2>
+          <div class="dejavu-list" id="dejavuList"></div>
+        </div>
+      </section>
+    </main>
+    <script src="/overlay.js"></script>
+  </body>
+</html>

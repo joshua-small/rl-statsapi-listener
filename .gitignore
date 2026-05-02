@@ -18,6 +18,8 @@ venv/
 *.db-shm
 *.db-wal
 *.log
+bin/
+obj/
 
 # Local OBS text-file output directories
 obs-output/

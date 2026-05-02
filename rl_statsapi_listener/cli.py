@@ -1,10 +1,12 @@
 import argparse
 import json
 import socket
+import threading
 from datetime import datetime
 from pathlib import Path
 
 from .overlay_state import OverlayStatsTracker, StatsStore
+from .web_overlay_server import start_web_overlay_server
 
 
 DEFAULT_HOST = "127.0.0.1"
@@ -183,6 +185,22 @@ def main():
         action="store_true",
         help="Re-read snapshot files in --data-dir before listening",
     )
+    parser.add_argument(
+        "--web-overlay",
+        action="store_true",
+        help="Serve the HTML/CSS/JS overlay at http://127.0.0.1:8765/ while listening",
+    )
+    parser.add_argument(
+        "--web-host",
+        default="127.0.0.1",
+        help="Host for --web-overlay (default: 127.0.0.1)",
+    )
+    parser.add_argument(
+        "--web-port",
+        type=int,
+        default=8765,
+        help="Port for --web-overlay (default: 8765)",
+    )
     args = parser.parse_args()
 
     buffer = ""
@@ -192,6 +210,8 @@ def main():
     obs_cache = {}
     stats_store = None
     stats_tracker = None
+    stats_lock = threading.RLock()
+    web_server = None
 
     if args.obs_dir:
         obs_dir = Path(args.obs_dir).expanduser().resolve()
@@ -210,6 +230,20 @@ def main():
             stats_store.close()
             stats_store = None
             print(f"Overlay stats disabled: {exc}")
+
+    if args.web_overlay:
+        if stats_tracker is None:
+            print("Web overlay disabled: overlay stats are unavailable")
+        else:
+            try:
+                web_server, _web_thread = start_web_overlay_server(
+                    args.web_host,
+                    args.web_port,
+                    lambda: _snapshot_tracker(stats_tracker, stats_lock),
+                )
+                print(f"Web overlay enabled: http://{args.web_host}:{args.web_port}/")
+            except OSError as exc:
+                print(f"Web overlay disabled: {exc}")
 
     print(f"Connecting to {args.host}:{args.port}...")
     try:
@@ -251,7 +285,8 @@ def main():
 
                     if stats_tracker is not None:
                         try:
-                            stats_tracker.handle_message(message)
+                            with stats_lock:
+                                stats_tracker.handle_message(message)
                         except Exception as exc:
                             print(f"[{ts}] #{message_count} Overlay stats error: {exc}")
 
@@ -263,8 +298,16 @@ def main():
     except KeyboardInterrupt:
         print("\nListener stopped by user.")
     finally:
+        if web_server is not None:
+            web_server.shutdown()
+            web_server.server_close()
         if stats_store is not None:
             stats_store.close()
+
+
+def _snapshot_tracker(stats_tracker: OverlayStatsTracker, stats_lock: threading.RLock) -> dict:
+    with stats_lock:
+        return stats_tracker.get_overlay_state()
 
 
 if __name__ == "__main__":

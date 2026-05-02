@@ -26,12 +26,37 @@ Optional text-file workflow:
 .venv/bin/python listen.py --obs-dir /path/to/obs-text-files
 ```
 
+Browser overlay workflow:
+
+```bash
+.venv/bin/python listen.py --web-overlay --obs-dir ./obs-output
+```
+
+Then open `http://127.0.0.1:8765/`.
+
+Use that URL directly in an OBS Browser Source, or point a Windows transparent/click-through window host at the same URL when you want the overlay above a borderless game window without relying on OBS projection. The page uses a transparent background, so the compositor/window host is responsible for preserving top-level window transparency.
+
+Windows transparent overlay host:
+
+```powershell
+.\integrations\windows-webview-host\Start-OverlayHost.ps1 -Url http://127.0.0.1:8765/ -Monitor 1
+```
+
+The host starts topmost and click-through. Use `Ctrl+Shift+F10` to toggle click-through, `Ctrl+Shift+F11` to reload, and `Ctrl+Shift+F9` to exit.
+
+If you are in VS Code Remote/WSL, run the Python listener in WSL and launch the Windows host through Windows PowerShell:
+
+```bash
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w integrations/windows-webview-host/Start-OverlayHost.ps1)" -Url http://127.0.0.1:8765/ -Monitor 1
+```
+
 The listener will:
 
 - Connect to `127.0.0.1:49123`.
 - Import snapshot data from `.data` the first time it runs.
 - Create/update `.data/rl_stats.sqlite3`.
 - Write OBS-friendly `.txt` files into `--obs-dir`.
+- Optionally serve an HTML/CSS/JS overlay and `state.json` feed with `--web-overlay`.
 - Keep listening until you stop it with `Ctrl+C`.
 
 If you manually edit or replace the `.data/*.yml` snapshot files later, run:
@@ -49,8 +74,11 @@ If you manually edit or replace the `.data/*.yml` snapshot files later, run:
 ├── pyproject.toml                    # Package metadata and console script config
 ├── rl_statsapi_listener/
 │   ├── cli.py                        # Main StatsAPI socket listener
-│   └── overlay_state.py              # SQLite/import/session tracking logic
+│   ├── overlay_state.py              # SQLite/import/session tracking logic
+│   ├── web_overlay_server.py         # Local HTTP server for browser overlays
+│   └── web_overlay/                  # Browser overlay HTML/CSS/JS
 ├── integrations/
+│   ├── windows-webview-host/         # Windows transparent/click-through WebView host
 │   └── obs/
 │       └── obs_rl_statsapi.py        # Canonical OBS Python script
 ├── tests/
@@ -121,13 +149,14 @@ Useful flags:
 .venv/bin/python listen.py --data-dir .data
 .venv/bin/python listen.py --reimport-snapshots
 .venv/bin/python listen.py --no-overlay-stats
+.venv/bin/python listen.py --web-overlay --web-port 8766
 ```
 
 ### `rl_statsapi_listener/overlay_state.py`
 
 The persistence and overlay stats brain.
 
-It imports the YAML-ish snapshot files, creates the SQLite schema, tracks current match/session state, updates lifetime counters, records freeplay shot speeds, and writes the richer overlay text files.
+It imports the YAML-ish snapshot files, creates the SQLite schema, tracks current match/session state, updates lifetime counters, records freeplay shot speeds, writes the richer overlay text files, and exposes structured state for the browser overlay.
 
 Why it is here:
 
@@ -165,6 +194,41 @@ Current caveat:
 
 - The richer SQLite-backed session/lifetime/Dejavu/freeplay tracking lives in `listen.py` + `rl_statsapi_listener/overlay_state.py`, not in this OBS script yet.
 - The long-term version may either extend this OBS script with more datapoints, use generated text files, or support both.
+
+### Browser Overlay
+
+`--web-overlay` starts a local HTTP server from inside the listener.
+
+What it serves:
+
+- `http://127.0.0.1:8765/` for the transparent overlay page.
+- `http://127.0.0.1:8765/state.json` for the live structured state.
+
+Why it is useful:
+
+- OBS can consume it as a normal Browser Source.
+- A Windows transparent-window wrapper can consume the same URL for a topmost, click-through in-game overlay.
+- The visual layout lives in regular HTML/CSS/JavaScript under `rl_statsapi_listener/web_overlay/`.
+- The data contract stays local and simple, so future overlay hosts do not need to know about SQLite or StatsAPI message shapes.
+
+### Windows WebView Host
+
+`integrations/windows-webview-host/` contains a Windows-only .NET/WPF WebView2 host for the browser overlay.
+
+Why it is here:
+
+- OBS cannot reliably project transparent browser content above every borderless game window.
+- The host creates a topmost transparent desktop window and points it at the same local overlay URL.
+- It starts click-through/no-activate so Rocket League keeps receiving mouse input.
+- It uses global hotkeys for control: `Ctrl+Shift+F10` toggles click-through, `Ctrl+Shift+F11` reloads, and `Ctrl+Shift+F9` exits.
+
+Run it after starting `listen.py --web-overlay`:
+
+```powershell
+.\integrations\windows-webview-host\Start-OverlayHost.ps1 -Url http://127.0.0.1:8765/ -Monitor 1
+```
+
+See `integrations/windows-webview-host/README.md` for publish commands, custom bounds, and debugging flags.
 
 ### `tests/test_overlay_state.py`
 
@@ -282,6 +346,17 @@ StatsAPI socket
     -> OBS text sources
 ```
 
+Browser/WebView overlay path:
+
+```text
+StatsAPI socket
+    -> listen.py --web-overlay
+    -> rl_statsapi_listener/overlay_state.py
+    -> local /state.json feed
+    -> rl_statsapi_listener/web_overlay/
+    -> OBS Browser Source or Windows WebView host
+```
+
 Snapshot imports happen like this:
 
 ```text
@@ -366,6 +441,31 @@ Useful generated files:
 | `club_name.txt` | Club tag/name |
 | `club_record.txt` | Compact club record summary |
 | `dejavu_players.txt` | Known players in current match, if detected |
+| `overlay_state.json` | Structured state used by browser-style overlays |
+
+### Option C: Browser Source Or WebView
+
+This is the shared HTML/CSS/JavaScript overlay path.
+
+1. Run the listener with the web overlay enabled:
+
+   ```bash
+   .venv/bin/python listen.py --web-overlay --obs-dir ./obs-output
+   ```
+
+2. Check the state feed:
+
+   ```bash
+   curl http://127.0.0.1:8765/state.json
+   ```
+
+3. Use `http://127.0.0.1:8765/` as an OBS Browser Source, or point the Windows WebView host at that URL.
+
+Use this when:
+
+- You want one overlay layout that works in OBS and in a Windows transparent window.
+- You want the richer SQLite-backed values without making many individual OBS Text Sources.
+- You want to iterate on layout with regular HTML/CSS/JavaScript.
 
 ## Operating Notes
 
@@ -493,6 +593,24 @@ Check that:
 - The listener terminal says it connected.
 - You are looking at text files that are actually generated by this app.
 
+### Browser overlay is blank or not updating
+
+First check whether the state feed is alive:
+
+```bash
+curl http://127.0.0.1:8765/state.json
+```
+
+From WSL, you can also check from the Windows side:
+
+```bash
+powershell.exe -NoProfile -Command "(Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8765/state.json).Content"
+```
+
+If the request fails, restart the listener with `--web-overlay`. If it returns JSON but the window is stale, press `Ctrl+Shift+F11` in the WebView host to reload.
+
+If Windows cannot reach the WSL listener on `127.0.0.1`, start the listener with `--web-host 0.0.0.0`, get the WSL IP with `hostname -I`, then pass `http://<wsl-ip>:8765/` to OBS or the WebView host.
+
 ### Session counters are not moving
 
 Run with `--pretty` and inspect whether StatsAPI is sending your player stats in the current event payload:
@@ -530,10 +648,16 @@ Run tests:
 Compile-check the Python files:
 
 ```bash
-.venv/bin/python -m py_compile listen.py obs_rl_statsapi.py rl_statsapi_listener/cli.py rl_statsapi_listener/overlay_state.py integrations/obs/obs_rl_statsapi.py tests/test_overlay_state.py tools/backup_data.py
+.venv/bin/python -m py_compile listen.py obs_rl_statsapi.py rl_statsapi_listener/cli.py rl_statsapi_listener/overlay_state.py rl_statsapi_listener/web_overlay_server.py integrations/obs/obs_rl_statsapi.py tests/test_overlay_state.py tools/backup_data.py
 ```
 
-The code currently uses only the Python standard library. No external packages are required.
+Build the Windows WebView host from WSL:
+
+```bash
+powershell.exe -NoProfile -Command "dotnet build \"$(wslpath -w integrations/windows-webview-host/RlStatsApiOverlay.Host.csproj)\""
+```
+
+The Python listener uses only the Python standard library. The Windows host uses .NET 8 and WebView2.
 
 ## Privacy And Safety
 
@@ -547,6 +671,8 @@ This repo has a `.gitignore` for the local/personal pieces. At minimum, keep rul
 *.sqlite3
 *.sqlite
 *.db
+bin/
+obj/
 *.code-workspace
 ```
 

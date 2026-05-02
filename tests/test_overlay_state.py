@@ -1,3 +1,5 @@
+import json
+import threading
 import tempfile
 import textwrap
 import unittest
@@ -129,6 +131,7 @@ class StatsStoreTests(unittest.TestCase):
                         "MatchGuid": "M1",
                         "PlaylistId": 11,
                         "Game": {
+                            "TimeSeconds": 184,
                             "Teams": [
                                 {"TeamNum": 0, "Score": 2},
                                 {"TeamNum": 1, "Score": 1},
@@ -176,10 +179,44 @@ class StatsStoreTests(unittest.TestCase):
 
             self.assertEqual((obs_dir / "session_wins.txt").read_text(encoding="utf-8"), "1")
             self.assertEqual((obs_dir / "session_streak.txt").read_text(encoding="utf-8"), "W1")
+            self.assertEqual((obs_dir / "clock.txt").read_text(encoding="utf-8"), "3:04")
+            self.assertEqual((obs_dir / "score_blue.txt").read_text(encoding="utf-8"), "2")
             self.assertEqual((obs_dir / "recent_mmr.txt").read_text(encoding="utf-8"), "Ranked Doubles 2v2: 1155")
             self.assertEqual((obs_dir / "freeplay_all_time_best.txt").read_text(encoding="utf-8"), "132.4 kph")
 
+            web_state = json.loads((obs_dir / "overlay_state.json").read_text(encoding="utf-8"))
+            self.assertEqual(web_state["clock"], "3:04")
+            self.assertEqual(web_state["scores"]["blue"], 2)
+            self.assertEqual(web_state["session"]["wins"], 1)
+            self.assertEqual(web_state["club"]["name"], "[PASS] We Say Great Pass")
+            self.assertEqual(web_state["dejavu"][0]["display"], "Old Mate: with 2-0 (2)")
+
             store.close()
+
+    def test_overlay_state_can_be_read_from_web_server_thread(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store = StatsStore(root / "stats.sqlite3", root / ".data")
+            store.initialize()
+            tracker = OverlayStatsTracker(store)
+
+            result = []
+            errors = []
+
+            def read_state() -> None:
+                try:
+                    result.append(tracker.get_overlay_state())
+                except Exception as exc:
+                    errors.append(exc)
+
+            thread = threading.Thread(target=read_state)
+            thread.start()
+            thread.join()
+
+            store.close()
+
+        self.assertEqual(errors, [])
+        self.assertEqual(result[0]["clock"], "0:00")
 
 
 if __name__ == "__main__":
