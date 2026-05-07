@@ -8,27 +8,44 @@ from collections.abc import Callable
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
+from pathlib import Path
 from pathlib import PurePosixPath
 from typing import Any
 from urllib.parse import urlparse
 
+from .overlay_state import load_yaml_like
+
 
 StateProvider = Callable[[], dict[str, Any]]
+DEFAULT_REFERENCE_RESOLUTION = {"w": 2560, "h": 1140}
+DEFAULT_SAFEZONES = {
+    "match": {
+        "stats": {
+            "size": {"w": 422, "h": 447},
+            "position": {"x": 0, "y": 802},
+        }
+    }
+}
 
 
 def start_web_overlay_server(
     host: str,
     port: int,
     state_provider: StateProvider,
+    data_dir: Path | str | None = None,
 ) -> tuple[ThreadingHTTPServer, threading.Thread]:
-    server = ThreadingHTTPServer((host, port), make_overlay_handler(state_provider))
+    server = ThreadingHTTPServer((host, port), make_overlay_handler(state_provider, data_dir=data_dir))
     thread = threading.Thread(target=server.serve_forever, name="web-overlay-server", daemon=True)
     thread.start()
     return server, thread
 
 
-def make_overlay_handler(state_provider: StateProvider) -> type[BaseHTTPRequestHandler]:
+def make_overlay_handler(
+    state_provider: StateProvider,
+    data_dir: Path | str | None = None,
+) -> type[BaseHTTPRequestHandler]:
     asset_root = files("rl_statsapi_listener.web_overlay")
+    overlay_data_dir = Path(data_dir) if data_dir is not None else Path(".data")
 
     class OverlayHandler(BaseHTTPRequestHandler):
         def do_GET(self) -> None:
@@ -40,6 +57,9 @@ def make_overlay_handler(state_provider: StateProvider) -> type[BaseHTTPRequestH
                 return
             if path == "/state.json":
                 self._serve_state()
+                return
+            if path == "/layout.json":
+                self._serve_layout()
                 return
 
             asset_name = PurePosixPath(path).name
@@ -60,6 +80,16 @@ def make_overlay_handler(state_provider: StateProvider) -> type[BaseHTTPRequestH
 
             body = json.dumps(payload, ensure_ascii=True, sort_keys=True).encode("utf-8")
             self.send_response(status)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _serve_layout(self) -> None:
+            payload = load_web_overlay_layout(overlay_data_dir)
+            body = json.dumps(payload, ensure_ascii=True, sort_keys=True).encode("utf-8")
+            self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", str(len(body)))
@@ -93,6 +123,46 @@ def make_overlay_handler(state_provider: StateProvider) -> type[BaseHTTPRequestH
             return
 
     return OverlayHandler
+
+
+def load_web_overlay_layout(data_dir: Path | str | None = None) -> dict[str, Any]:
+    overlay_data_dir = Path(data_dir) if data_dir is not None else Path(".data")
+    warnings = []
+    safezones = DEFAULT_SAFEZONES
+    scoreboard_layouts: dict[str, Any] = {}
+
+    safezones_path = overlay_data_dir / "safezones.yml"
+    try:
+        loaded_safezones = load_yaml_like(safezones_path)
+    except FileNotFoundError:
+        pass
+    except Exception as exc:
+        warnings.append(f"safezones.yml: {exc}")
+    else:
+        if isinstance(loaded_safezones, dict):
+            safezones = loaded_safezones
+        else:
+            warnings.append("safezones.yml: expected a mapping")
+
+    scoreboard_path = overlay_data_dir / "scoreboard-layouts.json"
+    try:
+        loaded_scoreboard_layouts = json.loads(scoreboard_path.read_text(encoding="utf-8-sig"))
+    except FileNotFoundError:
+        pass
+    except json.JSONDecodeError as exc:
+        warnings.append(f"scoreboard-layouts.json: {exc}")
+    else:
+        if isinstance(loaded_scoreboard_layouts, dict):
+            scoreboard_layouts = loaded_scoreboard_layouts
+        else:
+            warnings.append("scoreboard-layouts.json: expected a mapping")
+
+    return {
+        "reference_resolution": DEFAULT_REFERENCE_RESOLUTION,
+        "safezones": safezones,
+        "scoreboard_layouts": scoreboard_layouts,
+        "warnings": warnings,
+    }
 
 
 def _demo_state() -> dict[str, Any]:

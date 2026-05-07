@@ -1405,6 +1405,8 @@ def _extract_players(data: dict[str, Any]) -> list[ObservedPlayer]:
 
 def _extract_player_id(player: dict[str, Any]) -> str | None:
     for key in (
+        "PrimaryId",
+        "primaryId",
         "UniqueId",
         "UniqueID",
         "uniqueId",

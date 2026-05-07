@@ -56,7 +56,7 @@ The listener will:
 - Import snapshot data from `.data` the first time it runs.
 - Create/update `.data/rl_stats.sqlite3`.
 - Write OBS-friendly `.txt` files into `--obs-dir`.
-- Optionally serve an HTML/CSS/JS overlay and `state.json` feed with `--web-overlay`.
+- Optionally serve an HTML/CSS/JS overlay plus `state.json` and `layout.json` feeds with `--web-overlay`.
 - Keep listening until you stop it with `Ctrl+C`.
 
 If you manually edit or replace the `.data/*.yml` snapshot files later, run:
@@ -82,10 +82,11 @@ If you manually edit or replace the `.data/*.yml` snapshot files later, run:
 │   └── obs/
 │       └── obs_rl_statsapi.py        # Canonical OBS Python script
 ├── tests/
-│   └── test_overlay_state.py         # Unit tests
+│   └── test_*.py                     # Unit tests
 ├── tools/
 │   └── backup_data.py                # Local .data backup helper
 ├── docs/
+│   ├── web-overlay-layout.md         # Browser overlay safezone/layout notes
 │   └── reference/
 │       └── obscounter-stats.txt      # OBSCounter datapoint reference list
 └── .data/                            # Ignored personal/runtime data
@@ -144,7 +145,10 @@ Useful flags:
 .venv/bin/python listen.py --help
 .venv/bin/python listen.py --pretty
 .venv/bin/python listen.py --raw-chunks
+.venv/bin/python listen.py --quiet
 .venv/bin/python listen.py --obs-dir ./obs-output
+.venv/bin/python listen.py --obs-dir ./obs-output --replay-last-goal
+.venv/bin/python listen.py --obs-dir ./obs-output --replay-goal-player-id 'Epic|account-id|0'
 .venv/bin/python listen.py --stats-db .data/rl_stats.sqlite3
 .venv/bin/python listen.py --data-dir .data
 .venv/bin/python listen.py --reimport-snapshots
@@ -203,6 +207,7 @@ What it serves:
 
 - `http://127.0.0.1:8765/` for the transparent overlay page.
 - `http://127.0.0.1:8765/state.json` for the live structured state.
+- `http://127.0.0.1:8765/layout.json` for local safezone and scoreboard layout data loaded from `--data-dir`.
 
 Why it is useful:
 
@@ -210,6 +215,15 @@ Why it is useful:
 - A Windows transparent-window wrapper can consume the same URL for a topmost, click-through in-game overlay.
 - The visual layout lives in regular HTML/CSS/JavaScript under `rl_statsapi_listener/web_overlay/`.
 - The data contract stays local and simple, so future overlay hosts do not need to know about SQLite or StatsAPI message shapes.
+
+Current layout behavior:
+
+- The browser overlay only renders the stats HUD right now.
+- The stats HUD is positioned and clipped to `.data/safezones.yml` at `match.stats`.
+- `.data/scoreboard-layouts.json` is exposed through `layout.json` for future scoreboard/theme work, but clock, match conditions, series wins, team scores, and boost are not rendered yet.
+- The measured coordinates currently assume a `2560x1140` reference resolution and scale to the browser viewport.
+
+See `docs/web-overlay-layout.md` for the layout file contract and current theme limitations.
 
 ### Windows WebView Host
 
@@ -290,6 +304,9 @@ Important files:
 - `.data/club-roster.yml`: Your manually captured club roster.
 - `.data/freeplay_goal.yml`: A sample/manual freeplay goal speed snapshot.
 - `.data/dejavu_player_counter.yml`: Historical player encounter records from Deja-Vu.
+- `.data/safezones.yml`: Manually measured UI-safe rectangles for overlay surfaces. The browser overlay currently uses `match.stats`.
+- `.data/scoreboard-layouts.json`: Manually measured scoreboard element/layout coordinates for future broadcaster-style themes.
+- `.data/schemas/scoreboard-layouts.schema.json`: Draft schema/reference for the scoreboard layout capture data.
 - `.data/rl_stats.sqlite3`: Generated SQLite database. This appears after running the listener with overlay stats enabled.
 
 Why it is here:
@@ -304,6 +321,7 @@ Where the data came from:
 - `club-roster.yml` came from screenshots of Main Menu > Club > Show Roster, then OCR and cleanup.
 - `club.yml` came from screenshots of Main Menu > Club > Stats, then OCR and cleanup.
 - `dejavu_player_counter.yml` came from the Deja-Vu BakkesMod plugin data, with `player_counter` cleaned up afterward.
+- `safezones.yml` and `scoreboard-layouts.json` came from screenshot analysis and Photoshop measurements at a `2560x1140` reference resolution.
 
 Git note:
 
@@ -311,19 +329,21 @@ Git note:
 - Generated SQLite files should also stay out of git.
 - If sample data is useful later, create sanitized fixtures under a separate test/sample directory instead of committing your real `.data`.
 
-### `docs/reference/`
+### `docs/`
 
-Source-controlled reference material that is useful for planning but is not personal runtime data.
+Source-controlled project notes and reference material that are useful for planning but are not personal runtime data.
 
 Important files:
 
+- `docs/web-overlay-layout.md`: Notes for `.data/safezones.yml`, `.data/scoreboard-layouts.json`, and the current browser overlay layout contract.
 - `docs/reference/obscounter-stats.txt`: Placeholder/reference list of all the datapoints OBSCounter exposed.
 
 Why it is here:
 
+- The browser overlay uses personal `.data` measurements at runtime, but the expected shape and current behavior should be documented in git.
 - OBSCounter exposed a huge list of useful datapoints.
-- This file is a map of possible future overlay fields.
-- It is not user-specific, so it should live outside `.data` and can be committed.
+- These files are maps for future overlay fields and themes.
+- They are not user-specific, so they should live outside `.data` and can be committed.
 
 ## Data Flow
 
@@ -405,6 +425,12 @@ This is the newer path exposed by `listen.py`.
    .venv/bin/python listen.py --obs-dir ./obs-output
    ```
 
+   To also write the latest replay/match goal speed, enable the replay last-goal output:
+
+   ```bash
+   .venv/bin/python listen.py --obs-dir ./obs-output --replay-last-goal
+   ```
+
 3. In OBS, add Text sources.
 
 4. For each Text source, enable reading from a file and point it at one of the generated `.txt` files.
@@ -438,6 +464,7 @@ Useful generated files:
 | `freeplay_session_best.txt` | Best tracked freeplay shot this listener run |
 | `freeplay_all_time_best.txt` | Best stored freeplay shot speed |
 | `freeplay_avg_last_10.txt` | Average of last 10 stored shot speeds |
+| `replay_last_goal.txt` | Latest replay/match goal speed when `--replay-last-goal` is enabled |
 | `club_name.txt` | Club tag/name |
 | `club_record.txt` | Compact club record summary |
 | `dejavu_players.txt` | Known players in current match, if detected |
@@ -459,13 +486,20 @@ This is the shared HTML/CSS/JavaScript overlay path.
    curl http://127.0.0.1:8765/state.json
    ```
 
-3. Use `http://127.0.0.1:8765/` as an OBS Browser Source, or point the Windows WebView host at that URL.
+3. Check the layout feed if you are tuning safe zones:
+
+   ```bash
+   curl http://127.0.0.1:8765/layout.json
+   ```
+
+4. Use `http://127.0.0.1:8765/` as an OBS Browser Source, or point the Windows WebView host at that URL.
 
 Use this when:
 
 - You want one overlay layout that works in OBS and in a Windows transparent window.
 - You want the richer SQLite-backed values without making many individual OBS Text Sources.
 - You want to iterate on layout with regular HTML/CSS/JavaScript.
+- You want the stats HUD constrained to the measured `match.stats` safezone.
 
 ## Operating Notes
 
@@ -544,6 +578,21 @@ If freeplay speed files do not update, run:
 ```
 
 Then score a freeplay goal and inspect the event shape. The tracker may need another field name added.
+
+### Replay Last Goal Speed
+
+`--replay-last-goal` writes `replay_last_goal.txt` for OBS text sources. It first looks for explicit `GoalScored` or `BallHit` speed fields such as `goalSpeed`, `ShotSpeed`, `BallSpeed`, or `PostHitSpeed`.
+
+Some replay playback only emits `UpdateState` packets. In that case, the listener keeps a short rolling window of `Game.Ball.Speed` values and writes the best recent speed when either team's score increases.
+
+Useful commands:
+
+```bash
+.venv/bin/python listen.py --obs-dir ./obs-output --replay-last-goal
+.venv/bin/python listen.py --obs-dir ./obs-output --replay-goal-player-id 'Epic|account-id|0'
+```
+
+Start or restart the listener before replaying the goal sequence so it can see the ball-speed frames before the scoreboard changes. If `replay_last_goal.txt` stays at `-- kph`, run with `--pretty` briefly and inspect whether the replay payload includes `Game.Ball.Speed`, score changes, or a different speed field.
 
 ### Dejavu Player Records
 
@@ -636,6 +685,20 @@ The app needs enough live match data to know:
 - Which team won.
 
 Use `--pretty` to inspect whether those fields are present.
+
+## TODO / Ideas
+
+Future exploration notes, not committed behavior:
+
+- Add overlay themes for different visual styles and stream/game contexts.
+- Add a ticker or slideshow mode for some stat trackers, with recent match events able to temporarily take priority as the currently displayed stat.
+- Expand safe zone data by resolution, display mode, and game screen so overlays avoid covering important UI such as boost, scoreboard, menus, or lobby controls.
+- Add an input listener for controller, gamepad, or keypress controls to show/hide some or all overlay elements.
+- Make the overlay react to whether Rocket League is in a match, lobby, menu, or another screen, since each context has different safe zones and different useful/annoying stats.
+- Consider a database compressor or pruning/archival flow if imported data such as Deja-Vu records gets too large.
+- Add first-class support for multiple accounts owned by the same user, including per-account views and summed cross-account stats.
+- Create an easier install, package, and release path so other users can eventually run this without hand-wiring the repo.
+- Clean up and refine the SQLite schemas once the data model has settled more.
 
 ## Development
 

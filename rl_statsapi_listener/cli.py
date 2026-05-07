@@ -4,6 +4,7 @@ import socket
 import threading
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from .overlay_state import OverlayStatsTracker, StatsStore
 from .web_overlay_server import start_web_overlay_server
@@ -11,6 +12,57 @@ from .web_overlay_server import start_web_overlay_server
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 49123
+REPLAY_LAST_GOAL_DEFAULT = "-- kph"
+REPLAY_SPEED_WINDOW_SECONDS = 6.0
+REPLAY_SPEED_WINDOW_FRAMES = 720
+REPLAY_GOAL_SPEED_FIELDS = (
+    "goalSpeed",
+    "GoalSpeed",
+    "shotSpeed",
+    "ShotSpeed",
+    "ballSpeed",
+    "BallSpeed",
+    "PostHitSpeed",
+    "postHitSpeed",
+    "speed",
+    "Speed",
+)
+BALL_SPEED_FIELDS = (
+    "PostHitSpeed",
+    "postHitSpeed",
+    "GoalSpeed",
+    "goalSpeed",
+    "BallSpeed",
+    "ballSpeed",
+    "Speed",
+    "speed",
+)
+PLAYER_ID_FIELDS = (
+    "PrimaryId",
+    "primaryId",
+    "UniqueId",
+    "UniqueID",
+    "uniqueId",
+    "UniqueNetId",
+    "OnlineID",
+    "OnlineId",
+    "PlatformId",
+    "platformId",
+    "EpicAccountId",
+    "PlayerID",
+)
+PLAYER_CONTAINERS = (
+    "Scorer",
+    "scorer",
+    "Player",
+    "player",
+    "LastTouch",
+    "lastTouch",
+    "HitPlayer",
+    "hitPlayer",
+    "Instigator",
+    "instigator",
+)
 
 
 def parse_data_field(message: dict) -> dict:
@@ -31,11 +83,26 @@ def write_text_if_changed(path: Path, value: str, cache: dict):
     cache[path] = value
 
 
-def update_obs_files(message: dict, obs_dir: Path, cache: dict):
+def update_obs_files(
+    message: dict,
+    obs_dir: Path,
+    cache: dict,
+    replay_goal_player_id: str | None = None,
+    replay_goal_state: dict[str, Any] | None = None,
+):
     event = message.get("Event", "Unknown")
     data = parse_data_field(message)
 
     write_text_if_changed(obs_dir / "event_name.txt", str(event), cache)
+    if replay_goal_state is not None:
+        update_replay_last_goal_file(
+            str(event),
+            data,
+            obs_dir,
+            cache,
+            replay_goal_state,
+            replay_goal_player_id,
+        )
 
     if event == "UpdateState":
         game = data.get("Game", {})
@@ -93,6 +160,308 @@ def update_obs_files(message: dict, obs_dir: Path, cache: dict):
         else:
             banner = "MATCH ENDED"
         write_text_if_changed(obs_dir / "event_banner.txt", banner, cache)
+
+
+def initialize_replay_last_goal_file(obs_dir: Path, cache: dict) -> None:
+    write_text_if_changed(obs_dir / "replay_last_goal.txt", REPLAY_LAST_GOAL_DEFAULT, cache)
+
+
+def update_replay_last_goal_file(
+    event: str,
+    data: dict[str, Any],
+    obs_dir: Path,
+    cache: dict,
+    state: dict[str, Any],
+    replay_goal_player_id: str | None = None,
+) -> None:
+    if event == "UpdateState":
+        update_replay_goal_from_update_state(data, obs_dir, cache, state)
+        return
+
+    if event == "BallHit":
+        speed = extract_replay_goal_speed_kph(data)
+        if speed is None:
+            return
+        state["last_ball_hit_speed_kph"] = speed
+
+        player_id = extract_event_player_id(data)
+        if player_id:
+            state["last_ball_hit_player_id"] = player_id
+            by_player = state.setdefault("last_ball_hit_by_player", {})
+            by_player[normalize_player_id(player_id)] = speed
+        return
+
+    if event != "GoalScored":
+        return
+
+    target_id = normalize_player_id(replay_goal_player_id) if replay_goal_player_id else None
+    scorer_id = extract_event_player_id(data)
+    scorer_key = normalize_player_id(scorer_id) if scorer_id else None
+    last_hit_key = normalize_player_id(state.get("last_ball_hit_player_id"))
+    by_player = state.setdefault("last_ball_hit_by_player", {})
+
+    if target_id:
+        if scorer_key and scorer_key != target_id:
+            return
+        if not scorer_key and last_hit_key != target_id:
+            return
+
+    speed = extract_replay_goal_speed_kph(data)
+    if speed is None and scorer_key:
+        speed = by_player.get(scorer_key)
+    if speed is None and target_id:
+        speed = by_player.get(target_id)
+    if speed is None:
+        speed = state.get("last_ball_hit_speed_kph")
+
+    write_text_if_changed(obs_dir / "replay_last_goal.txt", format_speed_kph(speed), cache)
+
+
+def update_replay_goal_from_update_state(
+    data: dict[str, Any],
+    obs_dir: Path,
+    cache: dict,
+    state: dict[str, Any],
+) -> None:
+    game = data.get("Game")
+    if not isinstance(game, dict):
+        return
+
+    match_guid = as_text(data.get("MatchGuid") or game.get("MatchGuid"))
+    if match_guid and state.get("update_state_match_guid") != match_guid:
+        state["update_state_match_guid"] = match_guid
+        state.pop("last_update_team_scores", None)
+        state["recent_update_ball_speeds"] = []
+
+    elapsed = to_float(game.get("Elapsed"))
+    frame = to_float(game.get("Frame"))
+    ball_speed = extract_update_state_ball_speed_kph(game, data)
+    if ball_speed is not None:
+        state["last_update_ball_speed_kph"] = ball_speed
+        if ball_speed > 0:
+            recent = state.setdefault("recent_update_ball_speeds", [])
+            recent.append({"speed": ball_speed, "elapsed": elapsed, "frame": frame})
+            prune_recent_update_ball_speeds(recent, elapsed, frame)
+
+    scores = extract_update_state_scores(game)
+    if not scores:
+        return
+
+    previous_scores = state.get("last_update_team_scores")
+    if isinstance(previous_scores, dict):
+        if score_decreased(previous_scores, scores):
+            state["recent_update_ball_speeds"] = []
+        elif score_increased(previous_scores, scores):
+            speed = best_recent_update_ball_speed(state, elapsed, frame)
+            if speed is None or speed <= 0:
+                speed = state.get("last_update_ball_speed_kph")
+            write_text_if_changed(obs_dir / "replay_last_goal.txt", format_speed_kph(to_float(speed)), cache)
+            state["recent_update_ball_speeds"] = []
+
+    state["last_update_team_scores"] = scores
+
+
+def extract_update_state_ball_speed_kph(game: dict[str, Any], data: dict[str, Any]) -> float | None:
+    ball = game.get("Ball")
+    if not isinstance(ball, dict):
+        return None
+    speed = first_numeric_value(ball, BALL_SPEED_FIELDS)
+    if speed is None:
+        return None
+    return convert_speed_to_kph(speed, ball, game, data)
+
+
+def extract_update_state_scores(game: dict[str, Any]) -> dict[int, int]:
+    teams = game.get("Teams")
+    if not isinstance(teams, list):
+        return {}
+
+    scores = {}
+    for team in teams:
+        if not isinstance(team, dict):
+            continue
+        team_num = to_int(team.get("TeamNum"))
+        score = to_int(team.get("Score"))
+        if team_num is not None and score is not None:
+            scores[team_num] = score
+    return scores
+
+
+def prune_recent_update_ball_speeds(
+    recent: list[dict[str, float | None]],
+    elapsed: float | None,
+    frame: float | None,
+) -> None:
+    if elapsed is not None:
+        cutoff = elapsed - REPLAY_SPEED_WINDOW_SECONDS
+        recent[:] = [sample for sample in recent if sample.get("elapsed") is None or sample["elapsed"] >= cutoff]
+        return
+
+    if frame is not None:
+        cutoff = frame - REPLAY_SPEED_WINDOW_FRAMES
+        recent[:] = [sample for sample in recent if sample.get("frame") is None or sample["frame"] >= cutoff]
+
+
+def best_recent_update_ball_speed(state: dict[str, Any], elapsed: float | None, frame: float | None) -> float | None:
+    recent = state.get("recent_update_ball_speeds")
+    if not isinstance(recent, list):
+        return None
+
+    if elapsed is not None or frame is not None:
+        prune_recent_update_ball_speeds(recent, elapsed, frame)
+
+    speeds = [to_float(sample.get("speed")) for sample in recent if isinstance(sample, dict)]
+    speeds = [speed for speed in speeds if speed is not None]
+    return max(speeds) if speeds else None
+
+
+def score_increased(previous_scores: dict[int, int], scores: dict[int, int]) -> bool:
+    for team_num, score in scores.items():
+        previous = previous_scores.get(team_num)
+        if previous is not None and score > previous:
+            return True
+    return False
+
+
+def score_decreased(previous_scores: dict[int, int], scores: dict[int, int]) -> bool:
+    for team_num, score in scores.items():
+        previous = previous_scores.get(team_num)
+        if previous is not None and score < previous:
+            return True
+    return False
+
+
+def extract_replay_goal_speed_kph(data: dict[str, Any]) -> float | None:
+    ball = find_first_key(data, ("Ball", "ball"))
+    if isinstance(ball, dict):
+        ball_speed = first_numeric_value(ball, BALL_SPEED_FIELDS)
+        if ball_speed is not None:
+            return convert_speed_to_kph(ball_speed, ball, data)
+
+    speed = first_numeric_value(data, REPLAY_GOAL_SPEED_FIELDS)
+    if speed is None:
+        return None
+    return convert_speed_to_kph(speed, data)
+
+
+def first_numeric_value(value: Any, keys: tuple[str, ...]) -> float | None:
+    for key in keys:
+        number = to_float(find_first_key(value, (key,)))
+        if number is not None:
+            return number
+    return None
+
+
+def convert_speed_to_kph(speed: float, *unit_sources: dict[str, Any]) -> float:
+    unit = None
+    for source in unit_sources:
+        unit = normalize_token(find_first_key(source, ("unit", "Unit", "speedUnit", "SpeedUnit")))
+        if unit:
+            break
+    if unit in {"mph", "mi/h"}:
+        return speed * 1.609344
+    return speed
+
+
+def extract_event_player_id(data: dict[str, Any]) -> str | None:
+    for container_name in PLAYER_CONTAINERS:
+        player = data.get(container_name)
+        if isinstance(player, dict):
+            player_id = extract_player_id(player)
+            if player_id:
+                return player_id
+
+    return extract_player_id(data)
+
+
+def extract_player_id(player: dict[str, Any]) -> str | None:
+    for key in PLAYER_ID_FIELDS:
+        value = as_text(player.get(key))
+        if value:
+            return value
+
+    platform = player.get("Platform")
+    if isinstance(platform, dict):
+        for key in ("PlatformId", "Id", "ID", "OnlineID"):
+            value = as_text(platform.get(key))
+            if value:
+                return value
+    return None
+
+
+def find_first_key(value: Any, keys: tuple[str, ...], depth: int = 0) -> Any:
+    if depth > 5:
+        return None
+    if isinstance(value, dict):
+        for key in keys:
+            if key in value:
+                return value[key]
+        for child in value.values():
+            found = find_first_key(child, keys, depth + 1)
+            if found is not None:
+                return found
+    elif isinstance(value, list):
+        for child in value:
+            found = find_first_key(child, keys, depth + 1)
+            if found is not None:
+                return found
+    return None
+
+
+def normalize_player_id(value: str | None) -> str:
+    if value is None:
+        return ""
+    return value.strip().lower()
+
+
+def normalize_token(value: Any) -> str | None:
+    text = as_text(value)
+    if text is None:
+        return None
+    text = text.strip().lower()
+    return text or None
+
+
+def as_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    return str(value)
+
+
+def to_float(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return float(value)
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            return float(value.strip())
+        except ValueError:
+            return None
+    return None
+
+
+def to_int(value: Any) -> int | None:
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, int):
+        return value
+    if isinstance(value, float) and value.is_integer():
+        return int(value)
+    if isinstance(value, str):
+        try:
+            return int(value.strip())
+        except ValueError:
+            return None
+    return None
+
+
+def format_speed_kph(speed: float | None) -> str:
+    if speed is None:
+        return REPLAY_LAST_GOAL_DEFAULT
+    if speed.is_integer():
+        return f"{int(speed)} kph"
+    return f"{speed:.1f} kph"
 
 
 def format_event_summary(message: dict) -> str:
@@ -162,8 +531,22 @@ def main():
         help="Also print raw incoming chunks for transport-level debugging",
     )
     parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress per-event console summaries while still updating outputs",
+    )
+    parser.add_argument(
         "--obs-dir",
         help="Directory to write OBS-friendly text files (clock/score/event)",
+    )
+    parser.add_argument(
+        "--replay-last-goal",
+        action="store_true",
+        help="Write replay_last_goal.txt with the latest replay/match goal speed",
+    )
+    parser.add_argument(
+        "--replay-goal-player-id",
+        help="Only update replay_last_goal.txt for this scorer/player PrimaryId or UniqueId",
     )
     parser.add_argument(
         "--data-dir",
@@ -208,6 +591,7 @@ def main():
     message_count = 0
     obs_dir = None
     obs_cache = {}
+    replay_goal_state = None
     stats_store = None
     stats_tracker = None
     stats_lock = threading.RLock()
@@ -217,6 +601,13 @@ def main():
         obs_dir = Path(args.obs_dir).expanduser().resolve()
         obs_dir.mkdir(parents=True, exist_ok=True)
         print(f"OBS output enabled: {obs_dir}")
+        if args.replay_last_goal or args.replay_goal_player_id:
+            replay_goal_state = {}
+            initialize_replay_last_goal_file(obs_dir, obs_cache)
+            if args.replay_goal_player_id:
+                print(f"Replay last-goal output enabled for player: {args.replay_goal_player_id}")
+            else:
+                print("Replay last-goal output enabled for all scorers")
 
     if not args.no_overlay_stats:
         data_dir = Path(args.data_dir).expanduser().resolve()
@@ -240,6 +631,7 @@ def main():
                     args.web_host,
                     args.web_port,
                     lambda: _snapshot_tracker(stats_tracker, stats_lock),
+                    data_dir=data_dir,
                 )
                 print(f"Web overlay enabled: http://{args.web_host}:{args.web_port}/")
             except OSError as exc:
@@ -281,7 +673,13 @@ def main():
                             pass
 
                     if obs_dir is not None:
-                        update_obs_files(message, obs_dir, obs_cache)
+                        update_obs_files(
+                            message,
+                            obs_dir,
+                            obs_cache,
+                            replay_goal_player_id=args.replay_goal_player_id,
+                            replay_goal_state=replay_goal_state,
+                        )
 
                     if stats_tracker is not None:
                         try:
@@ -293,7 +691,7 @@ def main():
                     if args.pretty:
                         print(f"[{ts}] #{message_count}")
                         print(json.dumps(message, indent=2, ensure_ascii=True))
-                    else:
+                    elif not args.quiet:
                         print(f"[{ts}] #{message_count} {format_event_summary(message)}")
     except KeyboardInterrupt:
         print("\nListener stopped by user.")

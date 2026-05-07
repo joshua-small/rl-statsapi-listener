@@ -8,68 +8,92 @@
   </head>
   <body>
     <main class="overlay" aria-label="Rocket League stats overlay">
-      <section class="scorebar" aria-label="Scoreboard">
-        <div class="team team-blue">
-          <span class="team-name">Blue</span>
-          <strong id="blueScore">0</strong>
-        </div>
-        <div class="clock-shell">
-          <strong id="clock">0:00</strong>
-          <span id="eventName">Waiting</span>
-        </div>
-        <div class="team team-orange">
-          <span class="team-name">Orange</span>
-          <strong id="orangeScore">0</strong>
-        </div>
-      </section>
-
-      <section class="event-banner" id="eventBanner" hidden></section>
-
-      <section class="hud-grid" aria-label="Live stats">
-        <div class="panel">
-          <h2>Session</h2>
-          <div class="metric-row">
-            <span>W</span>
-            <strong id="sessionWins">0</strong>
-            <span>L</span>
-            <strong id="sessionLosses">0</strong>
-            <span>Streak</span>
-            <strong id="sessionStreak">0</strong>
+      <section class="stats-safezone" id="statsSafezone" aria-label="Live stats">
+        <div class="stats-hud">
+          <div class="session-strip" aria-label="Session record">
+            <div class="metric-tile">
+              <span>Wins</span>
+              <strong id="sessionWins">0</strong>
+            </div>
+            <div class="metric-tile">
+              <span>Losses</span>
+              <strong id="sessionLosses">0</strong>
+            </div>
+            <div class="metric-tile">
+              <span>Streak</span>
+              <strong id="sessionStreak">0</strong>
+            </div>
           </div>
-        </div>
 
-        <div class="panel">
-          <h2>Touch Stats</h2>
-          <div class="stat-stack">
-            <span>Low fives <strong id="sessionLowFives">0</strong></span>
-            <span>High fives <strong id="sessionHighFives">0</strong></span>
-            <span>Demos <strong id="sessionDemos">0</strong></span>
+          <div class="stat-columns">
+            <section class="stat-panel" aria-label="Touch stats">
+              <header>
+                <h2>Touch</h2>
+                <span>Session / Career</span>
+              </header>
+              <div class="stat-lines">
+                <div class="split-line">
+                  <span>Low fives</span>
+                  <strong id="sessionLowFives">0</strong>
+                  <em id="careerLowFives">0</em>
+                </div>
+                <div class="split-line">
+                  <span>High fives</span>
+                  <strong id="sessionHighFives">0</strong>
+                  <em id="careerHighFives">0</em>
+                </div>
+                <div class="split-line">
+                  <span>Demos</span>
+                  <strong id="sessionDemos">0</strong>
+                  <em id="careerDemos">0</em>
+                </div>
+              </div>
+            </section>
+
+            <section class="stat-panel" aria-label="Freeplay stats">
+              <header>
+                <h2>Freeplay</h2>
+                <span>Shots</span>
+              </header>
+              <div class="stat-lines">
+                <div class="value-line">
+                  <span>Last</span>
+                  <strong id="freeplayLast">-- kph</strong>
+                </div>
+                <div class="value-line">
+                  <span>Session</span>
+                  <strong id="freeplayBest">-- kph</strong>
+                </div>
+                <div class="value-line">
+                  <span>All time</span>
+                  <strong id="freeplayAllTime">-- kph</strong>
+                </div>
+              </div>
+            </section>
           </div>
-        </div>
 
-        <div class="panel">
-          <h2>Freeplay</h2>
-          <div class="stat-stack">
-            <span>Last <strong id="freeplayLast">-- kph</strong></span>
-            <span>Best <strong id="freeplayBest">-- kph</strong></span>
-            <span>All time <strong id="freeplayAllTime">-- kph</strong></span>
-          </div>
-        </div>
+          <section class="stat-panel context-panel" aria-label="Club and playlist stats">
+            <div class="context-row">
+              <span>Club</span>
+              <strong id="clubName"></strong>
+            </div>
+            <div class="context-row">
+              <span>Record</span>
+              <strong id="clubRecord"></strong>
+            </div>
+            <div class="context-row">
+              <span>MMR</span>
+              <strong id="recentMmr">MMR pending</strong>
+            </div>
+          </section>
 
-        <div class="panel">
-          <h2>Club</h2>
-          <strong class="line-value" id="clubName"></strong>
-          <span class="subline" id="clubRecord"></span>
-        </div>
-
-        <div class="panel panel-wide">
-          <h2>Playlist</h2>
-          <strong class="line-value" id="recentMmr">MMR pending</strong>
-        </div>
-
-        <div class="panel panel-wide">
-          <h2>Deja-Vu</h2>
-          <div class="dejavu-list" id="dejavuList"></div>
+          <section class="stat-panel dejavu-panel" aria-label="Deja-Vu stats">
+            <header>
+              <h2>Deja-Vu</h2>
+              <span id="feedStatus" hidden></span>
+            </header>
+            <div class="dejavu-list" id="dejavuList"></div>
+          </section>
         </div>
       </section>
     </main>
