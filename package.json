@@ -1,0 +1,26 @@
+{
+  "name": "rl-statsapi-listener",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Local Rocket League StatsAPI listener and overlay helper.",
+  "scripts": {
+    "test:python": ".venv/bin/python -m unittest discover -s tests -v",
+    "test:web": "playwright test",
+    "test:web:headed": "playwright test --headed"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joshua-small/rl-statsapi-listener.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/joshua-small/rl-statsapi-listener/issues"
+  },
+  "homepage": "https://github.com/joshua-small/rl-statsapi-listener#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}

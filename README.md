@@ -81,6 +81,10 @@ If you manually edit or replace the `.data/*.yml` snapshot files later, run:
 │   ├── windows-webview-host/         # Windows transparent/click-through WebView host
 │   └── obs/
 │       └── obs_rl_statsapi.py        # Canonical OBS Python script
+├── media/
+│   └── icons/                        # Web overlay stat, playlist, and rank icons
+├── package.json                      # Playwright browser-rendering test tooling
+├── playwright.config.js              # Web overlay screenshot/layout test config
 ├── tests/
 │   └── test_*.py                     # Unit tests
 ├── tools/
@@ -149,6 +153,9 @@ Useful flags:
 .venv/bin/python listen.py --obs-dir ./obs-output
 .venv/bin/python listen.py --obs-dir ./obs-output --replay-last-goal
 .venv/bin/python listen.py --obs-dir ./obs-output --replay-goal-player-id 'Epic|account-id|0'
+.venv/bin/python listen.py --latest-frame-json
+.venv/bin/python listen.py --latest-events-json
+.venv/bin/python listen.py --latest-events-dir
 .venv/bin/python listen.py --stats-db .data/rl_stats.sqlite3
 .venv/bin/python listen.py --data-dir .data
 .venv/bin/python listen.py --reimport-snapshots
@@ -218,10 +225,13 @@ Why it is useful:
 
 Current layout behavior:
 
-- The browser overlay only renders the stats HUD right now.
-- The stats HUD is positioned and clipped to `.data/safezones.yml` at `match.stats`.
+- The browser overlay renders a taller black in-match stats panel and a compact non-match/menu strip.
+- The in-match panel is positioned and clipped to `.data/safezones.yml` at `match.stats`.
+- The non-match strip is positioned and clipped to `.data/safezones.yml` at `menu.stats`.
+- The built-in fallback rectangles are `match.stats={w:422,h:447,x:0,y:802}` and `menu.stats={w:1567,h:51,x:892,y:1289}` on a `2560x1440` reference canvas.
+- Stat icons are served from `/media/icons/stats/*.webp`.
 - `.data/scoreboard-layouts.json` is exposed through `layout.json` for future scoreboard/theme work, but clock, match conditions, series wins, team scores, and boost are not rendered yet.
-- The measured coordinates currently assume a `2560x1140` reference resolution and scale to the browser viewport.
+- The measured safezone coordinates currently assume a `2560x1440` reference resolution and scale to the browser viewport.
 
 See `docs/web-overlay-layout.md` for the layout file contract and current theme limitations.
 
@@ -321,7 +331,7 @@ Where the data came from:
 - `club-roster.yml` came from screenshots of Main Menu > Club > Show Roster, then OCR and cleanup.
 - `club.yml` came from screenshots of Main Menu > Club > Stats, then OCR and cleanup.
 - `dejavu_player_counter.yml` came from the Deja-Vu BakkesMod plugin data, with `player_counter` cleaned up afterward.
-- `safezones.yml` and `scoreboard-layouts.json` came from screenshot analysis and Photoshop measurements at a `2560x1140` reference resolution.
+- `safezones.yml` and `scoreboard-layouts.json` came from screenshot analysis and Photoshop measurements. The current safezone scaler uses a `2560x1440` reference resolution.
 
 Git note:
 
@@ -470,6 +480,16 @@ Useful generated files:
 | `dejavu_players.txt` | Known players in current match, if detected |
 | `overlay_state.json` | Structured state used by browser-style overlays |
 
+Optional StatsAPI JSON capture flags:
+
+| Flag | What it writes |
+| --- | --- |
+| `--latest-frame-json [PATH]` | Latest decoded StatsAPI message as pretty JSON |
+| `--latest-events-json [PATH]` | Latest decoded message per tracked event type in one JSON file |
+| `--latest-events-dir [DIR]` | One pretty JSON file per tracked event type |
+
+When a path is omitted, these write under `--obs-dir` when provided, otherwise under `--data-dir`.
+
 ### Option C: Browser Source Or WebView
 
 This is the shared HTML/CSS/JavaScript overlay path.
@@ -499,7 +519,7 @@ Use this when:
 - You want one overlay layout that works in OBS and in a Windows transparent window.
 - You want the richer SQLite-backed values without making many individual OBS Text Sources.
 - You want to iterate on layout with regular HTML/CSS/JavaScript.
-- You want the stats HUD constrained to the measured `match.stats` safezone.
+- You want the stats panel constrained to the measured stats safezones.
 
 ## Operating Notes
 
@@ -707,6 +727,16 @@ Run tests:
 ```bash
 .venv/bin/python -m unittest discover -s tests -v
 ```
+
+Run the browser-rendering tests for the web overlay:
+
+```bash
+npm install
+npx playwright install chromium
+npm run test:web
+```
+
+These Playwright tests serve deterministic overlay state locally, assert `match.stats` versus `menu.stats` placement in Chromium, verify icons load, and save screenshots under `test-results/playwright/`.
 
 Compile-check the Python files:
 

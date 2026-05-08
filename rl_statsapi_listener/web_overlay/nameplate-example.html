@@ -1,0 +1,113 @@
+﻿<!DOCTYPE html>
+<html>
+  <head>
+    <style>
+      body {
+        background: #111;
+        padding: 20px;
+      }
+
+      .nameplate {
+        --bg: #206cff;
+        --border: #002ac1;
+        --text: #fff;
+
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+
+        height: 30px;
+        padding: 0 10px 0 4px;
+
+        background: var(--bg);
+        border: 2px solid var(--border);
+        border-radius: 999px;
+
+        font-family: "Arial Narrow", "Roboto Condensed", Arial, sans-serif;
+        font-size: 18px;
+        font-weight: 800;
+        line-height: 1;
+        color: var(--text);
+        text-transform: uppercase;
+
+        box-sizing: border-box;
+
+        --boost: 33%;
+      }
+
+      .boost {
+        content: "";
+        width: 18px;
+        height: 18px;
+        border: 2px solid currentColor;
+        border-radius: 50%;
+        box-sizing: border-box;
+
+        background: linear-gradient(to top, currentColor 0 var(--boost), transparent var(--boost) 100%);
+      }
+
+      .team-1 {
+        --bg: #206cff;
+        --border: #002ac1;
+        --text: #fff;
+      }
+
+      .team-1.colorblind {
+        --bg: #204cc9;
+        --border: #001579;
+        --text: #fff;
+      }
+
+      .team-2 {
+        --bg: #f88521;
+        --border: #b43d00;
+        --text: #fff;
+      }
+
+      .team-2.colorblind {
+        --bg: #ffbc21;
+        --border: #e86e00;
+        --text: #4f0700;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="nameplate team-1" data-boost="33">
+      <span class="boost"></span>
+      <span>HIROKOO__O | TTV/YT</span>
+    </div>
+
+    <br /><br />
+
+    <div class="nameplate team-2" data-boost="78">
+      <span class="boost"></span>
+      <span>ZAMDAMAN808</span>
+    </div>
+
+    <br /><br /><br /><br />
+
+    <div class="nameplate team-1 colorblind" data-boost="33">
+      <span class="boost"></span>
+      <span>HIROKOO__O | TTV/YT</span>
+    </div>
+
+    <br /><br />
+
+    <div class="nameplate team-2 colorblind" data-boost="12">
+      <span class="boost"></span>
+      <span>ZAMDAMAN808</span>
+    </div>
+
+    <script>
+      function setBoost(nameplate, value) {
+        const boost = Math.max(0, Math.min(100, Number(value)))
+        nameplate.style.setProperty("--boost", boost + "%")
+        nameplate.dataset.boost = boost
+      }
+
+      document.querySelectorAll(".nameplate").forEach((nameplate) => {
+        setBoost(nameplate, nameplate.dataset.boost)
+      })
+    </script>
+  </body>
+</html>

@@ -12,9 +12,33 @@ from .web_overlay_server import start_web_overlay_server
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 49123
+DEFAULT_LATEST_FRAME_JSON = "latest_statsapi_frame.json"
+DEFAULT_LATEST_EVENTS_JSON = "latest_statsapi_events.json"
+DEFAULT_LATEST_EVENTS_DIR = "latest_statsapi_events"
 REPLAY_LAST_GOAL_DEFAULT = "-- kph"
 REPLAY_SPEED_WINDOW_SECONDS = 6.0
 REPLAY_SPEED_WINDOW_FRAMES = 720
+TRACKED_STATSAPI_EVENTS = (
+    "UpdateState",
+    "BallHit",
+    "ClockUpdatedSeconds",
+    "CountdownBegin",
+    "CrossbarHit",
+    "GoalReplayEnd",
+    "GoalReplayStart",
+    "GoalReplayWillEnd",
+    "GoalScored",
+    "MatchCreated",
+    "MatchInitialized",
+    "MatchDestroyed",
+    "MatchEnded",
+    "MatchPaused",
+    "MatchUnpaused",
+    "PodiumStart",
+    "ReplayCreated",
+    "RoundStarted",
+    "StatfeedEvent",
+)
 REPLAY_GOAL_SPEED_FIELDS = (
     "goalSpeed",
     "GoalSpeed",
@@ -81,6 +105,84 @@ def write_text_if_changed(path: Path, value: str, cache: dict):
         return
     path.write_text(value, encoding="utf-8")
     cache[path] = value
+
+
+def write_latest_frame_json(path: Path, message: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(message, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+
+
+def initialize_latest_events_by_type() -> dict[str, dict | None]:
+    return {event: None for event in TRACKED_STATSAPI_EVENTS}
+
+
+def update_latest_events_by_type(events_by_type: dict[str, dict | None], message: dict) -> None:
+    event = as_text(message.get("Event")) or "Unknown"
+    events_by_type[event] = message
+
+
+def write_latest_events_json(path: Path, events_by_type: dict[str, dict | None]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(events_by_type, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+
+
+def initialize_latest_event_files(events_dir: Path) -> None:
+    events_dir.mkdir(parents=True, exist_ok=True)
+    for event in TRACKED_STATSAPI_EVENTS:
+        write_latest_event_value(events_dir, event, None)
+
+
+def write_latest_event_file(events_dir: Path, message: dict) -> Path:
+    event = as_text(message.get("Event")) or "Unknown"
+    return write_latest_event_value(events_dir, event, message)
+
+
+def write_latest_event_value(events_dir: Path, event: str, value: dict | None) -> Path:
+    path = events_dir / f"{safe_event_filename(event)}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2, ensure_ascii=True) + "\n", encoding="utf-8")
+    return path
+
+
+def safe_event_filename(event: str) -> str:
+    text = event.strip()
+    safe = []
+    for char in text:
+        if char.isascii() and (char.isalnum() or char in {"_", "-"}):
+            safe.append(char)
+        else:
+            safe.append("_")
+    return "".join(safe) or "Unknown"
+
+
+def resolve_latest_frame_json_path(value: str | None, obs_dir: Path | None, data_dir: Path) -> Path | None:
+    if value is None:
+        return None
+    if value:
+        return Path(value).expanduser().resolve()
+    if obs_dir is not None:
+        return obs_dir / DEFAULT_LATEST_FRAME_JSON
+    return data_dir / DEFAULT_LATEST_FRAME_JSON
+
+
+def resolve_latest_events_json_path(value: str | None, obs_dir: Path | None, data_dir: Path) -> Path | None:
+    if value is None:
+        return None
+    if value:
+        return Path(value).expanduser().resolve()
+    if obs_dir is not None:
+        return obs_dir / DEFAULT_LATEST_EVENTS_JSON
+    return data_dir / DEFAULT_LATEST_EVENTS_JSON
+
+
+def resolve_latest_events_dir_path(value: str | None, obs_dir: Path | None, data_dir: Path) -> Path | None:
+    if value is None:
+        return None
+    if value:
+        return Path(value).expanduser().resolve()
+    if obs_dir is not None:
+        return obs_dir / DEFAULT_LATEST_EVENTS_DIR
+    return data_dir / DEFAULT_LATEST_EVENTS_DIR
 
 
 def update_obs_files(
@@ -536,6 +638,36 @@ def main():
         help="Suppress per-event console summaries while still updating outputs",
     )
     parser.add_argument(
+        "--latest-frame-json",
+        nargs="?",
+        const="",
+        metavar="PATH",
+        help=(
+            "Continuously write the latest decoded StatsAPI message as pretty JSON. "
+            "Without PATH, writes latest_statsapi_frame.json in --obs-dir or --data-dir."
+        ),
+    )
+    parser.add_argument(
+        "--latest-events-json",
+        nargs="?",
+        const="",
+        metavar="PATH",
+        help=(
+            "Continuously write the latest decoded StatsAPI message for each event type as pretty JSON. "
+            "Without PATH, writes latest_statsapi_events.json in --obs-dir or --data-dir."
+        ),
+    )
+    parser.add_argument(
+        "--latest-events-dir",
+        nargs="?",
+        const="",
+        metavar="DIR",
+        help=(
+            "Continuously write one pretty JSON file per StatsAPI event type. "
+            "Without DIR, writes files under latest_statsapi_events/ in --obs-dir or --data-dir."
+        ),
+    )
+    parser.add_argument(
         "--obs-dir",
         help="Directory to write OBS-friendly text files (clock/score/event)",
     )
@@ -596,6 +728,11 @@ def main():
     stats_tracker = None
     stats_lock = threading.RLock()
     web_server = None
+    data_dir = Path(args.data_dir).expanduser().resolve()
+    latest_frame_json_path = None
+    latest_events_json_path = None
+    latest_events_dir_path = None
+    latest_events_by_type = initialize_latest_events_by_type()
 
     if args.obs_dir:
         obs_dir = Path(args.obs_dir).expanduser().resolve()
@@ -609,8 +746,21 @@ def main():
             else:
                 print("Replay last-goal output enabled for all scorers")
 
+    latest_frame_json_path = resolve_latest_frame_json_path(args.latest_frame_json, obs_dir, data_dir)
+    if latest_frame_json_path is not None:
+        print(f"Latest StatsAPI frame JSON enabled: {latest_frame_json_path}")
+
+    latest_events_json_path = resolve_latest_events_json_path(args.latest_events_json, obs_dir, data_dir)
+    if latest_events_json_path is not None:
+        write_latest_events_json(latest_events_json_path, latest_events_by_type)
+        print(f"Latest StatsAPI events JSON enabled: {latest_events_json_path}")
+
+    latest_events_dir_path = resolve_latest_events_dir_path(args.latest_events_dir, obs_dir, data_dir)
+    if latest_events_dir_path is not None:
+        initialize_latest_event_files(latest_events_dir_path)
+        print(f"Latest StatsAPI event files enabled: {latest_events_dir_path}")
+
     if not args.no_overlay_stats:
-        data_dir = Path(args.data_dir).expanduser().resolve()
         stats_db = Path(args.stats_db).expanduser().resolve()
         stats_store = StatsStore(stats_db, data_dir)
         try:
@@ -671,6 +821,16 @@ def main():
                             message["Data"] = json.loads(message["Data"])
                         except json.JSONDecodeError:
                             pass
+
+                    if latest_frame_json_path is not None:
+                        write_latest_frame_json(latest_frame_json_path, message)
+
+                    if latest_events_json_path is not None:
+                        update_latest_events_by_type(latest_events_by_type, message)
+                        write_latest_events_json(latest_events_json_path, latest_events_by_type)
+
+                    if latest_events_dir_path is not None:
+                        write_latest_event_file(latest_events_dir_path, message)
 
                     if obs_dir is not None:
                         update_obs_files(

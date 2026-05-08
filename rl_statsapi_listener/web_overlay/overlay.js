@@ -1,7 +1,7 @@
 const $ = (id) => document.getElementById(id);
 
 const DEFAULT_LAYOUT = {
-  reference_resolution: { w: 2560, h: 1140 },
+  reference_resolution: { w: 2560, h: 1440 },
   safezones: {
     match: {
       stats: {
@@ -9,33 +9,28 @@ const DEFAULT_LAYOUT = {
         position: { x: 0, y: 802 },
       },
     },
+    menu: {
+      stats: {
+        size: { w: 1567, h: 51 },
+        position: { x: 892, y: 1289 },
+      },
+    },
   },
   scoreboard_layouts: {},
 };
-const DEFAULT_STATS_RECT = { x: 0, y: 802, w: 422, h: 447 };
+const DEFAULT_STATS_RECTS = {
+  match: { x: 0, y: 802, w: 422, h: 447 },
+  menu: { x: 892, y: 1289, w: 1567, h: 51 },
+};
 
 const fields = {
   statsSafezone: $("statsSafezone"),
-  sessionWins: $("sessionWins"),
-  sessionLosses: $("sessionLosses"),
-  sessionStreak: $("sessionStreak"),
-  sessionLowFives: $("sessionLowFives"),
-  sessionHighFives: $("sessionHighFives"),
-  sessionDemos: $("sessionDemos"),
-  careerLowFives: $("careerLowFives"),
-  careerHighFives: $("careerHighFives"),
-  careerDemos: $("careerDemos"),
-  freeplayLast: $("freeplayLast"),
-  freeplayBest: $("freeplayBest"),
-  freeplayAllTime: $("freeplayAllTime"),
-  clubName: $("clubName"),
-  clubRecord: $("clubRecord"),
-  recentMmr: $("recentMmr"),
-  dejavuList: $("dejavuList"),
+  statsHud: $("statsHud"),
   feedStatus: $("feedStatus"),
 };
 
 let previousState = "";
+let currentLayoutMode = "menu";
 let overlayLayout = DEFAULT_LAYOUT;
 
 function isRecord(value) {
@@ -55,8 +50,17 @@ function valueAt(source, path, fallback = "") {
 
 function setText(element, value) {
   const text = String(value ?? "");
+  if (!element) {
+    return;
+  }
   if (element.textContent !== text) {
     element.textContent = text;
+  }
+}
+
+function setValue(name, value) {
+  for (const element of document.querySelectorAll(`[data-value="${name}"]`)) {
+    setText(element, value);
   }
 }
 
@@ -70,90 +74,167 @@ function toFiniteNumber(value, fallback) {
   return Number.isFinite(number) ? number : fallback;
 }
 
-function statsSafezoneSpec() {
+function formatWinRate(wins, losses) {
+  const total = wins + losses;
+  if (total <= 0) {
+    return "0.00";
+  }
+  return ((wins / total) * 100).toFixed(2);
+}
+
+function formatWinLossRatio(wins, losses) {
+  if (losses <= 0) {
+    return wins > 0 ? wins.toFixed(1) : "0.0";
+  }
+  return (wins / losses).toFixed(1);
+}
+
+function formatStreak(value) {
+  const text = String(value ?? "").trim();
+  const match = /^([WL])(\d+)$/i.exec(text);
+  if (!match) {
+    return text || "0";
+  }
+  const sign = match[1].toUpperCase() === "W" ? "+" : "-";
+  return `${sign}${match[2]}`;
+}
+
+function formatAverage(total, matches) {
+  if (matches <= 0) {
+    return "0";
+  }
+  const average = total / matches;
+  return average >= 10 ? average.toFixed(0) : average.toFixed(1).replace(/\.0$/, "");
+}
+
+function statsSafezoneSpec(layoutMode) {
+  const modeStats = valueAt(overlayLayout, ["safezones", layoutMode, "stats"], null);
+  if (isRecord(modeStats)) {
+    return modeStats;
+  }
+  const rootStats = valueAt(overlayLayout, ["safezones", "stats"], null);
+  if (isRecord(rootStats)) {
+    return rootStats;
+  }
+  const fallbackMode = layoutMode === "match" ? "match" : "menu";
   return valueAt(
     overlayLayout,
-    ["safezones", "match", "stats"],
-    valueAt(DEFAULT_LAYOUT, ["safezones", "match", "stats"]),
+    ["safezones", fallbackMode, "stats"],
+    valueAt(DEFAULT_LAYOUT, ["safezones", fallbackMode, "stats"]),
   );
 }
 
-function statsSafezoneRect() {
-  const spec = statsSafezoneSpec();
+function statsSafezoneRect(layoutMode) {
+  const fallback = DEFAULT_STATS_RECTS[layoutMode] ?? DEFAULT_STATS_RECTS.menu;
+  const spec = statsSafezoneSpec(layoutMode);
   const rect = {
-    x: toFiniteNumber(valueAt(spec, ["position", "x"], DEFAULT_STATS_RECT.x), DEFAULT_STATS_RECT.x),
-    y: toFiniteNumber(valueAt(spec, ["position", "y"], DEFAULT_STATS_RECT.y), DEFAULT_STATS_RECT.y),
-    w: toFiniteNumber(valueAt(spec, ["size", "w"], DEFAULT_STATS_RECT.w), DEFAULT_STATS_RECT.w),
-    h: toFiniteNumber(valueAt(spec, ["size", "h"], DEFAULT_STATS_RECT.h), DEFAULT_STATS_RECT.h),
+    x: toFiniteNumber(valueAt(spec, ["position", "x"], fallback.x), fallback.x),
+    y: toFiniteNumber(valueAt(spec, ["position", "y"], fallback.y), fallback.y),
+    w: toFiniteNumber(valueAt(spec, ["size", "w"], fallback.w), fallback.w),
+    h: toFiniteNumber(valueAt(spec, ["size", "h"], fallback.h), fallback.h),
   };
 
   if (rect.w <= 0 || rect.h <= 0) {
-    return { ...DEFAULT_STATS_RECT };
+    return { ...fallback };
   }
   return rect;
 }
 
+function safezoneReferenceBounds(value, bounds = { w: 0, h: 0 }) {
+  if (Array.isArray(value)) {
+    for (const child of value) {
+      safezoneReferenceBounds(child, bounds);
+    }
+    return bounds;
+  }
+
+  if (!isRecord(value)) {
+    return bounds;
+  }
+
+  const position = value.position;
+  const size = value.size;
+  if (isRecord(position) && isRecord(size)) {
+    const x = toFiniteNumber(position.x, NaN);
+    const y = toFiniteNumber(position.y, NaN);
+    const w = toFiniteNumber(size.w, NaN);
+    const h = toFiniteNumber(size.h, NaN);
+    if (Number.isFinite(x) && Number.isFinite(y) && Number.isFinite(w) && Number.isFinite(h)) {
+      bounds.w = Math.max(bounds.w, x + w);
+      bounds.h = Math.max(bounds.h, y + h);
+    }
+  }
+
+  for (const child of Object.values(value)) {
+    safezoneReferenceBounds(child, bounds);
+  }
+  return bounds;
+}
+
 function referenceResolution() {
   const reference = valueAt(overlayLayout, ["reference_resolution"], DEFAULT_LAYOUT.reference_resolution);
+  const inferred = safezoneReferenceBounds(valueAt(overlayLayout, ["safezones"], DEFAULT_LAYOUT.safezones));
   return {
-    w: Math.max(1, toFiniteNumber(reference.w, DEFAULT_LAYOUT.reference_resolution.w)),
-    h: Math.max(1, toFiniteNumber(reference.h, DEFAULT_LAYOUT.reference_resolution.h)),
+    w: Math.max(1, DEFAULT_LAYOUT.reference_resolution.w, inferred.w, toFiniteNumber(reference.w, 0)),
+    h: Math.max(1, DEFAULT_LAYOUT.reference_resolution.h, inferred.h, toFiniteNumber(reference.h, 0)),
   };
 }
 
-function applyStatsSafezone() {
-  const rect = statsSafezoneRect();
+function applyStatsSafezone(layoutMode = currentLayoutMode) {
+  currentLayoutMode = layoutMode === "match" ? "match" : "menu";
+  const rect = statsSafezoneRect(currentLayoutMode);
   const reference = referenceResolution();
   const scaleX = window.innerWidth / reference.w;
   const scaleY = window.innerHeight / reference.h;
 
+  fields.statsSafezone.dataset.layout = currentLayoutMode;
   fields.statsSafezone.style.left = `${rect.x * scaleX}px`;
   fields.statsSafezone.style.top = `${rect.y * scaleY}px`;
   fields.statsSafezone.style.width = `${rect.w * scaleX}px`;
   fields.statsSafezone.style.height = `${rect.h * scaleY}px`;
+  fields.statsSafezone.dataset.safezoneRect = `${rect.x},${rect.y},${rect.w},${rect.h}`;
+  fields.statsSafezone.dataset.referenceResolution = `${reference.w}x${reference.h}`;
 }
 
-function renderDejavu(players) {
-  fields.dejavuList.replaceChildren();
-
-  if (!Array.isArray(players) || players.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "empty";
-    empty.textContent = "No recent history";
-    fields.dejavuList.append(empty);
-    return;
+function layoutModeForState(state) {
+  if (valueAt(state, ["context", "mode"], "") === "match") {
+    return "match";
   }
-
-  for (const player of players.slice(0, 5)) {
-    const item = document.createElement("div");
-    item.className = "dejavu-item";
-    item.textContent = player.display || player.name || "";
-    fields.dejavuList.append(item);
-  }
+  return "menu";
 }
 
 function render(state) {
   setFeedStatus("");
+  fields.statsSafezone.hidden = false;
+  applyStatsSafezone(layoutModeForState(state));
 
-  setText(fields.sessionWins, valueAt(state, ["session", "wins"], 0));
-  setText(fields.sessionLosses, valueAt(state, ["session", "losses"], 0));
-  setText(fields.sessionStreak, valueAt(state, ["session", "streak"], 0));
-  setText(fields.sessionLowFives, valueAt(state, ["session", "low_fives"], 0));
-  setText(fields.sessionHighFives, valueAt(state, ["session", "high_fives"], 0));
-  setText(fields.sessionDemos, valueAt(state, ["session", "demos"], 0));
+  const wins = toFiniteNumber(valueAt(state, ["session", "wins"], 0), 0);
+  const losses = toFiniteNumber(valueAt(state, ["session", "losses"], 0), 0);
+  const completedMatches = wins + losses;
 
-  setText(fields.careerLowFives, valueAt(state, ["career", "low_fives"], 0));
-  setText(fields.careerHighFives, valueAt(state, ["career", "high_fives"], 0));
-  setText(fields.careerDemos, valueAt(state, ["career", "demos"], 0));
+  setValue("sessionWinRate", formatWinRate(wins, losses));
+  setValue("sessionWins", wins);
+  setValue("sessionLosses", losses);
+  setValue("sessionStreak", formatStreak(valueAt(state, ["session", "streak"], 0)));
+  setValue("sessionWinLossRatio", formatWinLossRatio(wins, losses));
 
-  setText(fields.freeplayLast, valueAt(state, ["freeplay", "last_shot"], "-- kph"));
-  setText(fields.freeplayBest, valueAt(state, ["freeplay", "session_best"], "-- kph"));
-  setText(fields.freeplayAllTime, valueAt(state, ["freeplay", "all_time_best"], "-- kph"));
+  const stats = [
+    ["Goals", "goals"],
+    ["Assists", "assists"],
+    ["Saves", "saves"],
+    ["Shots", "shots"],
+    ["Demos", "demos"],
+    ["HighFives", "high_fives"],
+    ["LowFives", "low_fives"],
+  ];
 
-  setText(fields.clubName, valueAt(state, ["club", "name"], ""));
-  setText(fields.clubRecord, valueAt(state, ["club", "record"], ""));
-  setText(fields.recentMmr, valueAt(state, ["mmr", "recent"], "MMR pending"));
-  renderDejavu(state.dejavu);
+  for (const [label, key] of stats) {
+    const matchValue = toFiniteNumber(valueAt(state, ["match", "stats", key], 0), 0);
+    const sessionValue = toFiniteNumber(valueAt(state, ["session", key], 0), 0);
+    setValue(`match${label}`, matchValue);
+    setValue(`session${label}`, sessionValue);
+    setValue(`avg${label}`, formatAverage(sessionValue, completedMatches));
+  }
 }
 
 async function refreshLayout() {

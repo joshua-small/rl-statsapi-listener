@@ -9,13 +9,14 @@ The layout feed lets the overlay use personal measurement files from `.data` wit
 
 ## Current Behavior
 
-The overlay currently renders only the stats HUD. It positions and clips that HUD to:
+The overlay currently renders the stats surface in two placements:
 
 ```text
-.data/safezones.yml -> match.stats
+in match     -> .data/safezones.yml -> match.stats
+not in match -> .data/safezones.yml -> menu.stats
 ```
 
-The current measured rectangle is based on a `2560x1140` reference resolution:
+The default measured safezone rectangles are based on a `2560x1440` reference resolution:
 
 ```yaml
 match:
@@ -26,15 +27,27 @@ match:
     position:
       x: 0
       y: 802
+menu:
+  stats:
+    size:
+      w: 1567
+      h: 51
+    position:
+      x: 892
+      y: 1289
 ```
 
-The browser code scales that rectangle to the actual browser viewport. This keeps the stats content inside the measured safezone in OBS and in the Windows WebView host.
+The browser code scales the selected rectangle to the actual browser viewport. This keeps the stats content inside the measured safezone in OBS and in the Windows WebView host. The server and browser both infer the reference bounds from the largest safezone edges when possible, so entries such as `controller.y + controller.h = 1440` keep the vertical scale anchored correctly.
+
+The in-match view uses the taller black stats panel with icons served from `/media/icons/stats/*.webp`. The non-match/menu view remains the compact wide strip for now.
+
+The browser layout is covered by `tests/web_overlay.playwright.spec.js`, which checks `match.stats` and `menu.stats` placement, loaded icons, and screenshot output in Chromium.
 
 ## Layout Files
 
 `.data/safezones.yml`
 
-Stores measured safe rectangles for overlay surfaces. The implemented browser overlay only reads `match.stats` today. Other entries such as `clock`, `match_conditions`, `series_wins`, `team1_score`, `team2_score`, `boost`, and `controller` are preserved as future layout data.
+Stores measured safe rectangles for overlay surfaces. The implemented browser overlay reads `match.stats` when `context.mode` is `match`, otherwise `menu.stats`. Other entries such as `clock`, `match_conditions`, `series_wins`, `team1_score`, `team2_score`, `boost`, and `controller` are preserved as future layout data.
 
 `.data/scoreboard-layouts.json`
 
@@ -50,14 +63,14 @@ Draft schema/reference for the scoreboard layout capture data. Keep this aligned
 
 ```json
 {
-  "reference_resolution": { "w": 2560, "h": 1140 },
+  "reference_resolution": { "w": 2560, "h": 1440 },
   "safezones": {},
   "scoreboard_layouts": {},
   "warnings": []
 }
 ```
 
-Missing layout files are allowed. The server falls back to the current `match.stats` default and an empty scoreboard layout. Malformed files are reported in `warnings` so the overlay can still start.
+Missing layout files are allowed. The server falls back to the current `match.stats` default and an empty scoreboard layout. Malformed files are reported in `warnings` so the overlay can still start. If safezone entries extend beyond the default reference bounds, `/layout.json` reports the larger inferred reference size.
 
 ## Future Theme Notes
 
@@ -66,4 +79,4 @@ The captured scoreboard layout data is intended for later RLCS-style broadcaster
 - Normalize the scoreboard layout JSON and schema so they agree on `layouts` versus `variants`.
 - Add theme selection once there is more than one visual treatment.
 - Render scoreboard/clock/team/boost elements only when their safezone and game context are known.
-- Add per-resolution captures if the `2560x1140` reference does not scale cleanly enough for other displays.
+- Add per-resolution captures if the `2560x1440` reference does not scale cleanly enough for other displays.

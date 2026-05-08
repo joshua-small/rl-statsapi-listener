@@ -27,6 +27,13 @@ class WebOverlayLayoutTests(unittest.TestCase):
                     position:
                       x: 0
                       y: 802
+                  controller:
+                    size:
+                      w: 200
+                      h: 116
+                    position:
+                      x: 1180
+                      y: 1324
                 """,
             )
             write(
@@ -36,8 +43,9 @@ class WebOverlayLayoutTests(unittest.TestCase):
 
             layout = load_web_overlay_layout(data_dir)
 
-        self.assertEqual(layout["reference_resolution"], {"w": 2560, "h": 1140})
+        self.assertEqual(layout["reference_resolution"], {"w": 2560, "h": 1440})
         self.assertEqual(layout["safezones"]["match"]["stats"]["position"]["y"], 802)
+        self.assertEqual(layout["safezones"]["match"]["controller"]["position"]["y"], 1324)
         self.assertEqual(layout["scoreboard_layouts"]["elements"]["score"]["size"]["w"], 191)
         self.assertEqual(layout["warnings"], [])
 
@@ -45,7 +53,10 @@ class WebOverlayLayoutTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             layout = load_web_overlay_layout(Path(tmp))
 
-        self.assertEqual(layout["safezones"]["match"]["stats"]["size"]["w"], 422)
+        self.assertEqual(layout["safezones"]["match"]["stats"]["size"], {"w": 422, "h": 447})
+        self.assertEqual(layout["safezones"]["match"]["stats"]["position"], {"x": 0, "y": 802})
+        self.assertEqual(layout["safezones"]["menu"]["stats"]["size"], {"w": 1567, "h": 51})
+        self.assertEqual(layout["safezones"]["menu"]["stats"]["position"], {"x": 892, "y": 1289})
         self.assertEqual(layout["scoreboard_layouts"], {})
         self.assertEqual(layout["warnings"], [])
 

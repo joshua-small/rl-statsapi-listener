@@ -185,6 +185,8 @@ class StatsStoreTests(unittest.TestCase):
             self.assertEqual((obs_dir / "freeplay_all_time_best.txt").read_text(encoding="utf-8"), "132.4 kph")
 
             web_state = json.loads((obs_dir / "overlay_state.json").read_text(encoding="utf-8"))
+            self.assertEqual(web_state["context"]["mode"], "menu")
+            self.assertFalse(web_state["context"]["active"])
             self.assertEqual(web_state["clock"], "3:04")
             self.assertEqual(web_state["scores"]["blue"], 2)
             self.assertEqual(web_state["session"]["wins"], 1)
@@ -217,6 +219,206 @@ class StatsStoreTests(unittest.TestCase):
 
         self.assertEqual(errors, [])
         self.assertEqual(result[0]["clock"], "0:00")
+        self.assertEqual(result[0]["context"]["mode"], "menu")
+        self.assertFalse(result[0]["context"]["active"])
+
+    def test_infers_freeplay_from_update_state_without_match_guid_and_one_player(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data_dir = root / ".data"
+            write(
+                data_dir / "player.yml",
+                """
+                profile:
+                  platformId: me-id
+                  displayName: Me
+                Stats:
+                  Low Fives: 2
+                """,
+            )
+            store = StatsStore(root / "stats.sqlite3", data_dir)
+            store.initialize()
+            tracker = OverlayStatsTracker(store)
+
+            tracker.handle_message(
+                {
+                    "Event": "UpdateState",
+                    "Data": {
+                        "MatchGuid": "",
+                        "Players": [
+                            {
+                                "UniqueId": "me-id",
+                                "Name": "Me",
+                                "TeamNum": 0,
+                                "Stats": {"gameLowFives": 1},
+                            }
+                        ],
+                        "Game": {"TimeSeconds": 92},
+                    },
+                }
+            )
+
+            state = tracker.get_overlay_state()
+            store.close()
+
+        self.assertEqual(state["context"]["mode"], "freeplay")
+        self.assertTrue(state["context"]["active"])
+        self.assertTrue(state["context"]["freeplay"])
+        self.assertIsNone(state["match"]["guid"])
+        self.assertEqual(state["clock"], "1:32")
+        self.assertEqual(state["session"]["low_fives"], 1)
+
+    def test_infers_menu_from_update_state_without_match_guid_and_no_players(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store = StatsStore(root / "stats.sqlite3", root / ".data")
+            store.initialize()
+            tracker = OverlayStatsTracker(store)
+
+            tracker.handle_message(
+                {
+                    "Event": "UpdateState",
+                    "Data": {
+                        "MatchGuid": "",
+                        "Players": [{"UniqueId": "me-id", "Name": "Me", "TeamNum": 0}],
+                        "Game": {"TimeSeconds": 92},
+                    },
+                }
+            )
+            tracker.handle_message(
+                {
+                    "Event": "UpdateState",
+                    "Data": {"MatchGuid": "", "Players": [], "Game": {"TimeSeconds": 0}},
+                }
+            )
+
+            state = tracker.get_overlay_state()
+            store.close()
+
+        self.assertEqual(state["context"]["mode"], "menu")
+        self.assertFalse(state["context"]["active"])
+        self.assertIsNone(state["match"]["guid"])
+
+    def test_match_ended_counts_match_then_deactivates_overlay(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data_dir = root / ".data"
+            write(
+                data_dir / "player.yml",
+                """
+                profile:
+                  platformId: me-id
+                  displayName: Me
+                Stats:
+                  Wins: 10
+                """,
+            )
+            store = StatsStore(root / "stats.sqlite3", data_dir)
+            store.initialize()
+            tracker = OverlayStatsTracker(store)
+
+            tracker.handle_message(
+                {
+                    "Event": "UpdateState",
+                    "Data": {
+                        "MatchGuid": "M1",
+                        "Game": {
+                            "TimeSeconds": 184,
+                            "Teams": [{"TeamNum": 0, "Score": 2}, {"TeamNum": 1, "Score": 1}],
+                            "Players": [{"UniqueId": "me-id", "Name": "Me", "TeamNum": 0}],
+                        },
+                    },
+                }
+            )
+            tracker.handle_message({"Event": "MatchEnded", "Data": {"MatchGuid": "M1", "WinnerTeamNum": 0}})
+
+            state = tracker.get_overlay_state()
+            store.close()
+
+        self.assertEqual(state["session"]["wins"], 1)
+        self.assertEqual(state["context"]["mode"], "menu")
+        self.assertFalse(state["context"]["active"])
+        self.assertFalse(state["match"]["active"])
+        self.assertEqual(state["match"]["guid"], "M1")
+
+    def test_podium_start_deactivates_overlay(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store = StatsStore(root / "stats.sqlite3", root / ".data")
+            store.initialize()
+            tracker = OverlayStatsTracker(store)
+
+            tracker.handle_message({"Event": "MatchInitialized", "Data": {"MatchGuid": "M1"}})
+            tracker.handle_message({"Event": "PodiumStart", "Data": {"MatchGuid": "M1"}})
+
+            state = tracker.get_overlay_state()
+            store.close()
+
+        self.assertEqual(state["context"]["mode"], "menu")
+        self.assertFalse(state["context"]["active"])
+
+    def test_match_destroyed_deactivates_and_clears_match_context(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store = StatsStore(root / "stats.sqlite3", root / ".data")
+            store.initialize()
+            tracker = OverlayStatsTracker(store)
+
+            tracker.handle_message({"Event": "MatchInitialized", "Data": {"MatchGuid": "M1"}})
+            tracker.handle_message({"Event": "MatchDestroyed", "Data": {"MatchGuid": "M1"}})
+
+            state = tracker.get_overlay_state()
+            store.close()
+
+        self.assertEqual(state["event"]["name"], "MatchDestroyed")
+        self.assertEqual(state["context"]["mode"], "menu")
+        self.assertFalse(state["context"]["active"])
+        self.assertIsNone(state["match"]["guid"])
+
+    def test_stale_update_state_after_match_destroyed_does_not_reactivate_overlay(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store = StatsStore(root / "stats.sqlite3", root / ".data")
+            store.initialize()
+            tracker = OverlayStatsTracker(store)
+
+            tracker.handle_message({"Event": "MatchInitialized", "Data": {"MatchGuid": "M1"}})
+            tracker.handle_message({"Event": "MatchDestroyed", "Data": {"MatchGuid": "M1"}})
+            tracker.handle_message(
+                {
+                    "Event": "UpdateState",
+                    "Data": {
+                        "MatchGuid": "M1",
+                        "Players": [{"UniqueId": "me-id", "Name": "Me", "TeamNum": 0}],
+                    },
+                }
+            )
+
+            state = tracker.get_overlay_state()
+            store.close()
+
+        self.assertEqual(state["event"]["name"], "UpdateState")
+        self.assertEqual(state["context"]["mode"], "menu")
+        self.assertFalse(state["context"]["active"])
+        self.assertIsNone(state["match"]["guid"])
+
+    def test_new_match_initialized_can_reactivate_after_destroyed_guid(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            store = StatsStore(root / "stats.sqlite3", root / ".data")
+            store.initialize()
+            tracker = OverlayStatsTracker(store)
+
+            tracker.handle_message({"Event": "MatchInitialized", "Data": {"MatchGuid": "M1"}})
+            tracker.handle_message({"Event": "MatchDestroyed", "Data": {"MatchGuid": "M1"}})
+            tracker.handle_message({"Event": "MatchInitialized", "Data": {"MatchGuid": "M2"}})
+
+            state = tracker.get_overlay_state()
+            store.close()
+
+        self.assertEqual(state["context"]["mode"], "match")
+        self.assertTrue(state["context"]["active"])
+        self.assertEqual(state["match"]["guid"], "M2")
 
 
 if __name__ == "__main__":

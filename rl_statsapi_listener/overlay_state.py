@@ -861,6 +861,7 @@ class ObservedPlayer:
 
 @dataclass
 class CurrentMatch:
+    play_mode: str = "menu"
     match_guid: str | None = None
     playlist_id: int | None = None
     own_team: int | None = None
@@ -876,12 +877,21 @@ class CurrentMatch:
 
 
 class OverlayStatsTracker:
+    DEACTIVATE_AFTER_EVENTS = {"MatchEnded", "PodiumStart"}
     STAT_FIELDS = {
+        "goals": ("gameGoals", "GameGoals", "game_goals"),
+        "assists": ("gameAssists", "GameAssists", "game_assists"),
+        "saves": ("gameSaves", "GameSaves", "game_saves"),
+        "shots": ("gameShots", "GameShots", "game_shots"),
         "low_fives": ("gameLowFives", "GameLowFives", "game_low_fives"),
         "high_fives": ("gameHighFives", "GameHighFives", "game_high_fives"),
         "demos": ("gameDemolitions", "GameDemolitions", "gameDemos", "GameDemos"),
     }
     CAREER_NAMES = {
+        "goals": "Goals",
+        "assists": "Assists",
+        "saves": "Saves",
+        "shots": "Shots",
         "low_fives": "Low Fives",
         "high_fives": "High Fives",
         "demos": "Demolitions",
@@ -907,9 +917,10 @@ class OverlayStatsTracker:
         self.session_losses = 0
         self.streak_kind: str | None = None
         self.streak_count = 0
-        self.session_counts = {"low_fives": 0, "high_fives": 0, "demos": 0}
+        self.session_counts = dict.fromkeys(self.STAT_FIELDS, 0)
         self.session_shots: list[float] = []
         self.file_cache: dict[Path, str] = {}
+        self.inactive_match_guids: set[str] = set()
 
         if self.obs_dir is not None:
             self.obs_dir.mkdir(parents=True, exist_ok=True)
@@ -922,14 +933,21 @@ class OverlayStatsTracker:
         self._update_live_display(event, data)
 
         match_guid = _find_first_key(data, ("MatchGuid", "MatchGUID", "MatchId", "MatchID"))
-        match_guid_text = _as_text(match_guid)
-        if match_guid_text and match_guid_text != self.current.match_guid:
+        match_guid_text = self._normalize_match_guid(match_guid)
+        if event in {"MatchCreated", "MatchInitialized"} and match_guid_text:
+            self.inactive_match_guids.discard(match_guid_text)
+        players = _extract_players(data)
+        play_mode = self._infer_play_mode(event, match_guid_text, players)
+        if self._should_reset_current(event, play_mode, match_guid_text):
             self.current = CurrentMatch(
-                match_guid=match_guid_text,
+                play_mode=play_mode,
+                match_guid=match_guid_text if play_mode == "match" else None,
                 clock=self.current.clock,
                 overtime=self.current.overtime,
                 event_name=self.current.event_name,
-                event_banner=self.current.event_banner if event in {"GoalScored", "MatchEnded"} else "",
+                event_banner=(
+                    self.current.event_banner if play_mode != "menu" and event in {"GoalScored", "MatchEnded"} else ""
+                ),
             )
 
         playlist_id = _extract_playlist_id(data)
@@ -940,7 +958,6 @@ class OverlayStatsTracker:
         if teams:
             self.current.team_scores.update(teams)
 
-        players = _extract_players(data)
         if players:
             for player in players:
                 if player.unique_id:
@@ -954,8 +971,40 @@ class OverlayStatsTracker:
 
         if event == "MatchEnded":
             self._handle_match_ended(data)
+        if event in self.DEACTIVATE_AFTER_EVENTS or event == "MatchDestroyed":
+            if match_guid_text:
+                self.inactive_match_guids.add(match_guid_text)
+            self.current.play_mode = "menu"
 
         self.write_overlay_files()
+
+    def _infer_play_mode(self, event: str, match_guid: str | None, players: list[ObservedPlayer]) -> str:
+        if event == "MatchDestroyed":
+            return "menu"
+        if match_guid and match_guid in self.inactive_match_guids:
+            return "menu"
+        if match_guid:
+            return "match"
+        if event in {"MatchCreated", "MatchInitialized"}:
+            return "match"
+        if event == "UpdateState":
+            return "freeplay" if len(players) == 1 else "menu"
+        return self.current.play_mode
+
+    def _should_reset_current(self, event: str, play_mode: str, match_guid: str | None) -> bool:
+        if play_mode != self.current.play_mode:
+            return True
+        if play_mode == "match":
+            return bool(match_guid and match_guid != self.current.match_guid)
+        return event in {"UpdateState", "MatchDestroyed"} and self.current.match_guid is not None
+
+    @staticmethod
+    def _normalize_match_guid(value: Any) -> str | None:
+        text = _as_text(value)
+        if text is None:
+            return None
+        text = text.strip()
+        return text or None
 
     def _update_live_display(self, event: str, data: dict[str, Any]) -> None:
         time_seconds = _extract_time_seconds(data)
@@ -1139,7 +1188,13 @@ class OverlayStatsTracker:
         self.file_cache[path] = value
 
     def get_overlay_state(self) -> dict[str, Any]:
+        active = self.current.play_mode in {"match", "freeplay"}
         return {
+            "context": {
+                "mode": self.current.play_mode,
+                "active": active,
+                "freeplay": self.current.play_mode == "freeplay",
+            },
             "clock": self.current.clock,
             "overtime": self.current.overtime,
             "scores": {
@@ -1151,20 +1206,25 @@ class OverlayStatsTracker:
                 "banner": self.current.event_banner,
             },
             "match": {
+                "active": active,
+                "mode": self.current.play_mode,
                 "guid": self.current.match_guid,
                 "playlist_id": self.current.playlist_id,
                 "own_team": self.current.own_team,
                 "winner_team": self.current.winner_team,
+                "stats": {stat_key: self.current.stat_values.get(stat_key, 0) for stat_key in self.STAT_FIELDS},
             },
             "session": {
                 "wins": self.session_wins,
                 "losses": self.session_losses,
                 "streak": self._format_streak(),
-                "low_fives": self.session_counts["low_fives"],
-                "high_fives": self.session_counts["high_fives"],
-                "demos": self.session_counts["demos"],
+                **self.session_counts,
             },
             "career": {
+                "goals": self._format_number(self.store.get_stat_value("career_stat", "Goals")),
+                "assists": self._format_number(self.store.get_stat_value("career_stat", "Assists")),
+                "saves": self._format_number(self.store.get_stat_value("career_stat", "Saves")),
+                "shots": self._format_number(self.store.get_stat_value("career_stat", "Shots")),
                 "low_fives": self._format_number(self.store.get_stat_value("career_stat", "Low Fives")),
                 "high_fives": self._format_number(self.store.get_stat_value("career_stat", "High Fives")),
                 "demos": self._format_number(self.store.get_stat_value("career_stat", "Demolitions")),

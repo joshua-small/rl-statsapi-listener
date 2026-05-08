@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import math
 import mimetypes
 import threading
 from collections.abc import Callable
@@ -17,14 +18,20 @@ from .overlay_state import load_yaml_like
 
 
 StateProvider = Callable[[], dict[str, Any]]
-DEFAULT_REFERENCE_RESOLUTION = {"w": 2560, "h": 1140}
+DEFAULT_REFERENCE_RESOLUTION = {"w": 2560, "h": 1440}
 DEFAULT_SAFEZONES = {
     "match": {
         "stats": {
             "size": {"w": 422, "h": 447},
             "position": {"x": 0, "y": 802},
         }
-    }
+    },
+    "menu": {
+        "stats": {
+            "size": {"w": 1567, "h": 51},
+            "position": {"x": 892, "y": 1289},
+        }
+    },
 }
 
 
@@ -45,6 +52,8 @@ def make_overlay_handler(
     data_dir: Path | str | None = None,
 ) -> type[BaseHTTPRequestHandler]:
     asset_root = files("rl_statsapi_listener.web_overlay")
+    source_media_root = Path(__file__).resolve().parents[1] / "media"
+    media_root = source_media_root if source_media_root.exists() else Path.cwd() / "media"
     overlay_data_dir = Path(data_dir) if data_dir is not None else Path(".data")
 
     class OverlayHandler(BaseHTTPRequestHandler):
@@ -60,6 +69,9 @@ def make_overlay_handler(
                 return
             if path == "/layout.json":
                 self._serve_layout()
+                return
+            if path.startswith("/media/"):
+                self._serve_media(path)
                 return
 
             asset_name = PurePosixPath(path).name
@@ -91,6 +103,35 @@ def make_overlay_handler(
             body = json.dumps(payload, ensure_ascii=True, sort_keys=True).encode("utf-8")
             self.send_response(HTTPStatus.OK)
             self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+
+        def _serve_media(self, path: str) -> None:
+            requested = PurePosixPath(path)
+            parts = [part for part in requested.parts if part not in {"", "/"}]
+            if len(parts) < 2 or parts[0] != "media" or any(part == ".." for part in parts):
+                self.send_error(HTTPStatus.NOT_FOUND)
+                return
+
+            root = media_root.resolve()
+            asset = (root / Path(*parts[1:])).resolve()
+            try:
+                asset.relative_to(root)
+            except ValueError:
+                self.send_error(HTTPStatus.NOT_FOUND)
+                return
+
+            if not asset.is_file():
+                self.send_error(HTTPStatus.NOT_FOUND)
+                return
+
+            body = asset.read_bytes()
+            content_type = mimetypes.guess_type(asset.name)[0] or "application/octet-stream"
+
+            self.send_response(HTTPStatus.OK)
+            self.send_header("Content-Type", content_type)
             self.send_header("Cache-Control", "no-store")
             self.send_header("Content-Length", str(len(body)))
             self.end_headers()
@@ -158,21 +199,83 @@ def load_web_overlay_layout(data_dir: Path | str | None = None) -> dict[str, Any
             warnings.append("scoreboard-layouts.json: expected a mapping")
 
     return {
-        "reference_resolution": DEFAULT_REFERENCE_RESOLUTION,
+        "reference_resolution": infer_safezone_reference_resolution(safezones),
         "safezones": safezones,
         "scoreboard_layouts": scoreboard_layouts,
         "warnings": warnings,
     }
 
 
+def infer_safezone_reference_resolution(safezones: Any) -> dict[str, int]:
+    width = float(DEFAULT_REFERENCE_RESOLUTION["w"])
+    height = float(DEFAULT_REFERENCE_RESOLUTION["h"])
+
+    for right, bottom in _iter_safezone_edges(safezones):
+        width = max(width, right)
+        height = max(height, bottom)
+
+    return {"w": math.ceil(width), "h": math.ceil(height)}
+
+
+def _iter_safezone_edges(value: Any):
+    if isinstance(value, dict):
+        position = value.get("position")
+        size = value.get("size")
+        if isinstance(position, dict) and isinstance(size, dict):
+            x = _finite_number(position.get("x"))
+            y = _finite_number(position.get("y"))
+            w = _finite_number(size.get("w"))
+            h = _finite_number(size.get("h"))
+            if x is not None and y is not None and w is not None and h is not None:
+                yield x + w, y + h
+
+        for child in value.values():
+            yield from _iter_safezone_edges(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _iter_safezone_edges(child)
+
+
+def _finite_number(value: Any) -> float | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)) and math.isfinite(value):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            parsed = float(value.strip())
+        except ValueError:
+            return None
+        return parsed if math.isfinite(parsed) else None
+    return None
+
+
 def _demo_state() -> dict[str, Any]:
     return {
+        "context": {"mode": "match", "active": True, "freeplay": False},
         "clock": "3:21",
         "overtime": False,
         "scores": {"blue": 2, "orange": 1},
         "event": {"name": "UpdateState", "banner": "GOAL: You"},
-        "match": {"guid": "demo", "playlist_id": 11, "own_team": 0, "winner_team": None},
-        "session": {"wins": 4, "losses": 2, "streak": "W2", "low_fives": 3, "high_fives": 1, "demos": 7},
+        "match": {
+            "guid": "demo",
+            "playlist_id": 11,
+            "own_team": 0,
+            "winner_team": None,
+            "stats": {"goals": 2, "assists": 1, "saves": 3, "shots": 5, "demos": 1, "high_fives": 0, "low_fives": 1},
+        },
+        "session": {
+            "wins": 4,
+            "losses": 2,
+            "streak": "W2",
+            "goals": 12,
+            "assists": 7,
+            "saves": 18,
+            "shots": 29,
+            "low_fives": 3,
+            "high_fives": 1,
+            "demos": 7,
+        },
         "career": {"low_fives": "201", "high_fives": "33", "demos": "1180"},
         "freeplay": {
             "last_shot": "117.2 kph",

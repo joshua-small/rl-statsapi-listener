@@ -8,91 +8,105 @@
   </head>
   <body>
     <main class="overlay" aria-label="Rocket League stats overlay">
-      <section class="stats-safezone" id="statsSafezone" aria-label="Live stats">
-        <div class="stats-hud">
-          <div class="session-strip" aria-label="Session record">
-            <div class="metric-tile">
-              <span>Wins</span>
-              <strong id="sessionWins">0</strong>
+      <section class="stats-safezone" id="statsSafezone" aria-label="Live stats" hidden>
+        <div class="stats-hud" id="statsHud" aria-label="Session stats">
+          <span class="feed-status" id="feedStatus" hidden></span>
+          <section class="menu-strip" aria-label="Menu stats strip">
+            <div class="strip-stat" title="Session win rate">
+              <img class="stat-icon" src="/media/icons/stats/MVP.webp" alt="">
+              <strong class="stat-value" data-value="sessionWinRate">0.00</strong>
             </div>
-            <div class="metric-tile">
-              <span>Losses</span>
-              <strong id="sessionLosses">0</strong>
+            <div class="strip-stat" title="Session wins">
+              <img class="stat-icon" src="/media/icons/stats/Win.webp" alt="">
+              <strong class="stat-value" data-value="sessionWins">0</strong>
             </div>
-            <div class="metric-tile">
-              <span>Streak</span>
-              <strong id="sessionStreak">0</strong>
+            <div class="strip-stat" title="Session losses">
+              <img class="stat-icon" src="/media/icons/stats/Lose.webp" alt="">
+              <strong class="stat-value" data-value="sessionLosses">0</strong>
             </div>
-          </div>
-
-          <div class="stat-columns">
-            <section class="stat-panel" aria-label="Touch stats">
-              <header>
-                <h2>Touch</h2>
-                <span>Session / Career</span>
-              </header>
-              <div class="stat-lines">
-                <div class="split-line">
-                  <span>Low fives</span>
-                  <strong id="sessionLowFives">0</strong>
-                  <em id="careerLowFives">0</em>
-                </div>
-                <div class="split-line">
-                  <span>High fives</span>
-                  <strong id="sessionHighFives">0</strong>
-                  <em id="careerHighFives">0</em>
-                </div>
-                <div class="split-line">
-                  <span>Demos</span>
-                  <strong id="sessionDemos">0</strong>
-                  <em id="careerDemos">0</em>
-                </div>
-              </div>
-            </section>
-
-            <section class="stat-panel" aria-label="Freeplay stats">
-              <header>
-                <h2>Freeplay</h2>
-                <span>Shots</span>
-              </header>
-              <div class="stat-lines">
-                <div class="value-line">
-                  <span>Last</span>
-                  <strong id="freeplayLast">-- kph</strong>
-                </div>
-                <div class="value-line">
-                  <span>Session</span>
-                  <strong id="freeplayBest">-- kph</strong>
-                </div>
-                <div class="value-line">
-                  <span>All time</span>
-                  <strong id="freeplayAllTime">-- kph</strong>
-                </div>
-              </div>
-            </section>
-          </div>
-
-          <section class="stat-panel context-panel" aria-label="Club and playlist stats">
-            <div class="context-row">
-              <span>Club</span>
-              <strong id="clubName"></strong>
+            <div class="strip-stat" title="Current session streak">
+              <img class="stat-icon" src="/media/icons/stats/streak.webp" alt="">
+              <strong class="stat-value" data-value="sessionStreak">0</strong>
             </div>
-            <div class="context-row">
-              <span>Record</span>
-              <strong id="clubRecord"></strong>
+            <div class="strip-stat strip-stat-text" title="Session win/loss ratio">
+              <span class="stat-glyph" aria-hidden="true">WL</span>
+              <strong class="stat-value" data-value="sessionWinLossRatio">0.0</strong>
             </div>
-            <div class="context-row">
-              <span>MMR</span>
-              <strong id="recentMmr">MMR pending</strong>
+            <div class="strip-stat" title="Session demolitions">
+              <img class="stat-icon" src="/media/icons/stats/Demolition.webp" alt="">
+              <strong class="stat-value" data-value="sessionDemos">0</strong>
+            </div>
+            <div class="strip-stat" title="Session high fives">
+              <img class="stat-icon" src="/media/icons/stats/High_Five.webp" alt="">
+              <strong class="stat-value" data-value="sessionHighFives">0</strong>
+            </div>
+            <div class="strip-stat" title="Session low fives">
+              <img class="stat-icon" src="/media/icons/stats/Low_Five.webp" alt="">
+              <strong class="stat-value" data-value="sessionLowFives">0</strong>
             </div>
           </section>
 
-          <section class="stat-panel dejavu-panel" aria-label="Deja-Vu stats">
-            <header>
-              <h2>Deja-Vu</h2>
-              <span id="feedStatus" hidden></span>
-            </header>
-            <div class="dejavu-list" id="dejavuList"></div>
+          <section class="match-panel" aria-label="In-match stats">
+            <div class="match-summary" aria-label="Session record">
+              <div class="summary-stat" title="Session wins">
+                <img class="stat-icon" src="/media/icons/stats/Win.webp" alt="">
+                <strong data-value="sessionWins">0</strong>
+              </div>
+              <div class="summary-stat" title="Session losses">
+                <img class="stat-icon" src="/media/icons/stats/Lose.webp" alt="">
+                <strong data-value="sessionLosses">0</strong>
+              </div>
+              <div class="summary-stat" title="Current session streak">
+                <img class="stat-icon" src="/media/icons/stats/streak.webp" alt="">
+                <strong data-value="sessionStreak">0</strong>
+              </div>
+              <div class="summary-stat summary-stat-text" title="Session win/loss ratio">
+                <span aria-hidden="true">WL</span>
+                <strong data-value="sessionWinLossRatio">0.0</strong>
+              </div>
+            </div>
+
+            <div class="stats-grid" aria-label="Match, session, and average stats">
+              <div class="grid-heading stat-heading"></div>
+              <div class="grid-heading">Match</div>
+              <div class="grid-heading">Session</div>
+              <div class="grid-heading">Avg</div>
+
+              <img class="row-icon" src="/media/icons/stats/Goal.webp" alt="" title="Goals">
+              <strong data-value="matchGoals">0</strong>
+              <strong data-value="sessionGoals">0</strong>
+              <strong data-value="avgGoals">0</strong>
+
+              <img class="row-icon" src="/media/icons/stats/Assist.webp" alt="" title="Assists">
+              <strong data-value="matchAssists">0</strong>
+              <strong data-value="sessionAssists">0</strong>
+              <strong data-value="avgAssists">0</strong>
+
+              <img class="row-icon" src="/media/icons/stats/Save.webp" alt="" title="Saves">
+              <strong data-value="matchSaves">0</strong>
+              <strong data-value="sessionSaves">0</strong>
+              <strong data-value="avgSaves">0</strong>
+
+              <img class="row-icon" src="/media/icons/stats/Shot_on_Goal.webp" alt="" title="Shots">
+              <strong data-value="matchShots">0</strong>
+              <strong data-value="sessionShots">0</strong>
+              <strong data-value="avgShots">0</strong>
+
+              <img class="row-icon" src="/media/icons/stats/Demolition.webp" alt="" title="Demolitions">
+              <strong data-value="matchDemos">0</strong>
+              <strong data-value="sessionDemos">0</strong>
+              <strong data-value="avgDemos">0</strong>
+
+              <img class="row-icon" src="/media/icons/stats/High_Five.webp" alt="" title="High fives">
+              <strong data-value="matchHighFives">0</strong>
+              <strong data-value="sessionHighFives">0</strong>
+              <strong data-value="avgHighFives">0</strong>
+
+              <img class="row-icon" src="/media/icons/stats/Low_Five.webp" alt="" title="Low fives">
+              <strong data-value="matchLowFives">0</strong>
+              <strong data-value="sessionLowFives">0</strong>
+              <strong data-value="avgLowFives">0</strong>
+            </div>
           </section>
         </div>
       </section>
