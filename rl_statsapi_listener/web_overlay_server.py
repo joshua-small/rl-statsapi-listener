@@ -28,8 +28,8 @@ DEFAULT_SAFEZONES = {
     },
     "menu": {
         "stats": {
-            "size": {"w": 1567, "h": 51},
-            "position": {"x": 892, "y": 1289},
+            "size": {"w": 684, "h": 102},
+            "position": {"x": 1192, "y": 1238},
         }
     },
 }
@@ -262,7 +262,17 @@ def _demo_state() -> dict[str, Any]:
             "playlist_id": 11,
             "own_team": 0,
             "winner_team": None,
-            "stats": {"goals": 2, "assists": 1, "saves": 3, "shots": 5, "demos": 1, "high_fives": 0, "low_fives": 1},
+            "last_goal_speed": "117.2 kph",
+            "stats": {
+                "goals": 2,
+                "assists": 1,
+                "saves": 3,
+                "shots": 5,
+                "demos": 1,
+                "deaths": 1,
+                "high_fives": 0,
+                "low_fives": 1,
+            },
         },
         "session": {
             "wins": 4,
@@ -275,8 +285,9 @@ def _demo_state() -> dict[str, Any]:
             "low_fives": 3,
             "high_fives": 1,
             "demos": 7,
+            "deaths": 3,
         },
-        "career": {"low_fives": "201", "high_fives": "33", "demos": "1180"},
+        "career": {"low_fives": "201", "high_fives": "33", "demos": "1180", "deaths": "422"},
         "freeplay": {
             "last_shot": "117.2 kph",
             "session_best": "129.8 kph",

@@ -11,8 +11,8 @@ const DEFAULT_LAYOUT = {
     },
     menu: {
       stats: {
-        size: { w: 1567, h: 51 },
-        position: { x: 892, y: 1289 },
+        size: { w: 684, h: 102 },
+        position: { x: 1192, y: 1238 },
       },
     },
   },
@@ -20,7 +20,7 @@ const DEFAULT_LAYOUT = {
 };
 const DEFAULT_STATS_RECTS = {
   match: { x: 0, y: 802, w: 422, h: 447 },
-  menu: { x: 892, y: 1289, w: 1567, h: 51 },
+  menu: { x: 1192, y: 1238, w: 684, h: 102 },
 };
 
 const fields = {
@@ -89,6 +89,13 @@ function formatWinLossRatio(wins, losses) {
   return (wins / losses).toFixed(1);
 }
 
+function formatKillDeathRatio(kills, deaths) {
+  if (deaths <= 0) {
+    return kills > 0 ? kills.toFixed(1) : "0.0";
+  }
+  return (kills / deaths).toFixed(1);
+}
+
 function formatStreak(value) {
   const text = String(value ?? "").trim();
   const match = /^([WL])(\d+)$/i.exec(text);
@@ -105,6 +112,12 @@ function formatAverage(total, matches) {
   }
   const average = total / matches;
   return average >= 10 ? average.toFixed(0) : average.toFixed(1).replace(/\.0$/, "");
+}
+
+function formatSpeedNumber(value) {
+  const text = String(value ?? "").trim();
+  const match = /-?\d+(?:\.\d+)?/.exec(text);
+  return match ? match[0] : "--";
 }
 
 function statsSafezoneSpec(layoutMode) {
@@ -197,7 +210,8 @@ function applyStatsSafezone(layoutMode = currentLayoutMode) {
 }
 
 function layoutModeForState(state) {
-  if (valueAt(state, ["context", "mode"], "") === "match") {
+  const mode = valueAt(state, ["context", "mode"], "");
+  if (mode === "match" || mode === "freeplay") {
     return "match";
   }
   return "menu";
@@ -217,13 +231,14 @@ function render(state) {
   setValue("sessionLosses", losses);
   setValue("sessionStreak", formatStreak(valueAt(state, ["session", "streak"], 0)));
   setValue("sessionWinLossRatio", formatWinLossRatio(wins, losses));
+  setValue("lastGoalSpeedNumber", formatSpeedNumber(valueAt(state, ["match", "last_goal_speed"], "-- kph")));
 
   const stats = [
     ["Goals", "goals"],
     ["Assists", "assists"],
     ["Saves", "saves"],
-    ["Shots", "shots"],
     ["Demos", "demos"],
+    ["Deaths", "deaths"],
     ["HighFives", "high_fives"],
     ["LowFives", "low_fives"],
   ];
@@ -235,6 +250,14 @@ function render(state) {
     setValue(`session${label}`, sessionValue);
     setValue(`avg${label}`, formatAverage(sessionValue, completedMatches));
   }
+
+  const matchDemos = toFiniteNumber(valueAt(state, ["match", "stats", "demos"], 0), 0);
+  const matchDeaths = toFiniteNumber(valueAt(state, ["match", "stats", "deaths"], 0), 0);
+  const sessionDemos = toFiniteNumber(valueAt(state, ["session", "demos"], 0), 0);
+  const sessionDeaths = toFiniteNumber(valueAt(state, ["session", "deaths"], 0), 0);
+  setValue("matchKD", formatKillDeathRatio(matchDemos, matchDeaths));
+  setValue("sessionKD", formatKillDeathRatio(sessionDemos, sessionDeaths));
+  setValue("avgKD", formatKillDeathRatio(sessionDemos, sessionDeaths));
 }
 
 async function refreshLayout() {

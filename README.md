@@ -167,7 +167,7 @@ Useful flags:
 
 The persistence and overlay stats brain.
 
-It imports the YAML-ish snapshot files, creates the SQLite schema, tracks current match/session state, updates lifetime counters, records freeplay shot speeds, writes the richer overlay text files, and exposes structured state for the browser overlay.
+It imports the YAML-ish snapshot files, creates the SQLite schema, tracks current match/session state, updates lifetime counters after completed winner-bearing matches, records freeplay shot speeds, writes the richer overlay text files, and exposes structured state for the browser overlay.
 
 Why it is here:
 
@@ -179,7 +179,7 @@ Why it is here:
 Main things it stores:
 
 - Player profile and MMR snapshots.
-- Career stats such as wins, low fives, high fives, demolitions.
+- Career stats such as wins, low fives, high fives, demolitions, and deaths.
 - Club info, club stats, and club roster.
 - Player records, including `with` and `against` records per playlist.
 - Completed matches, so the same match does not double-count.
@@ -225,12 +225,13 @@ Why it is useful:
 
 Current layout behavior:
 
-- The browser overlay renders a taller black in-match stats panel and a compact non-match/menu strip.
-- The in-match panel is positioned and clipped to `.data/safezones.yml` at `match.stats`.
-- The non-match strip is positioned and clipped to `.data/safezones.yml` at `menu.stats`.
-- The built-in fallback rectangles are `match.stats={w:422,h:447,x:0,y:802}` and `menu.stats={w:1567,h:51,x:892,y:1289}` on a `2560x1440` reference canvas.
+- The browser overlay renders a taller in-match/freeplay stats panel and a compact two-row menu strip.
+- The in-match/freeplay panel is positioned and clipped to `.data/safezones.yml` at `match.stats`.
+- The in-match/freeplay panel shows live Match stats, completed-session totals, per-completed-game averages, Deaths, KD, and your latest goal speed.
+- The menu strip is positioned and clipped to `.data/safezones.yml` at `menu.stats`.
+- The built-in fallback rectangles are `match.stats={w:422,h:447,x:0,y:802}` and `menu.stats={w:684,h:102,x:1192,y:1238}` on a `2560x1440` reference canvas.
 - Stat icons are served from `/media/icons/stats/*.webp`.
-- `.data/scoreboard-layouts.json` is exposed through `layout.json` for future scoreboard/theme work, but clock, match conditions, series wins, team scores, and boost are not rendered yet.
+- `.data/scoreboard-layouts.json` is exposed through `layout.json` for future scoreboard/theme work, but match conditions and series wins are not rendered yet.
 - The measured safezone coordinates currently assume a `2560x1440` reference resolution and scale to the browser viewport.
 
 See `docs/web-overlay-layout.md` for the layout file contract and current theme limitations.
@@ -314,7 +315,7 @@ Important files:
 - `.data/club-roster.yml`: Your manually captured club roster.
 - `.data/freeplay_goal.yml`: A sample/manual freeplay goal speed snapshot.
 - `.data/dejavu_player_counter.yml`: Historical player encounter records from Deja-Vu.
-- `.data/safezones.yml`: Manually measured UI-safe rectangles for overlay surfaces. The browser overlay currently uses `match.stats`.
+- `.data/safezones.yml`: Manually measured UI-safe rectangles for overlay surfaces. The browser overlay uses `match.stats` for match/freeplay and `menu.stats` for menu.
 - `.data/scoreboard-layouts.json`: Manually measured scoreboard element/layout coordinates for future broadcaster-style themes.
 - `.data/schemas/scoreboard-layouts.schema.json`: Draft schema/reference for the scoreboard layout capture data.
 - `.data/rl_stats.sqlite3`: Generated SQLite database. This appears after running the listener with overlay stats enabled.
@@ -466,10 +467,13 @@ Useful generated files:
 | `session_low_fives.txt` | Low fives this session |
 | `session_high_fives.txt` | High fives this session |
 | `session_demos.txt` | Demolitions this session |
+| `session_deaths.txt` | Deaths this session |
 | `recent_mmr.txt` | Current playlist's stored MMR snapshot |
 | `lifetime_low_fives.txt` | Stored lifetime low fives |
 | `lifetime_high_fives.txt` | Stored lifetime high fives |
 | `lifetime_demos.txt` | Stored lifetime demolitions |
+| `lifetime_deaths.txt` | Stored lifetime deaths |
+| `last_goal_speed.txt` | Your latest tracked goal speed |
 | `freeplay_last_shot.txt` | Last tracked freeplay shot speed |
 | `freeplay_session_best.txt` | Best tracked freeplay shot this listener run |
 | `freeplay_all_time_best.txt` | Best stored freeplay shot speed |
@@ -589,15 +593,15 @@ Future options:
 
 ### Freeplay Shot Speeds
 
-The app imports `.data/freeplay_goal.yml` as the initial all-time shot speed baseline. During live use, it records shot speed events when StatsAPI sends a recognizable freeplay goal payload with speed fields such as `goalSpeed`, `ShotSpeed`, `BallSpeed`, or `PostHitSpeed`.
+The app imports `.data/freeplay_goal.yml` as the initial all-time shot speed baseline. During live use, it records shot speed events when StatsAPI sends a recognizable freeplay goal payload with speed fields such as `goalSpeed`, `ShotSpeed`, `BallSpeed`, or `PostHitSpeed`. If Freeplay sends only `UpdateState` frames, the overlay also counts a goal when the Freeplay team score increases and uses the best recent `Game.Ball.Speed` value as the goal speed. If no positive ball speed is available, the goal still counts and the previous last-goal speed remains unchanged.
 
 If freeplay speed files do not update, run:
 
 ```bash
-.venv/bin/python listen.py --pretty
+.venv/bin/python listen.py --pretty --latest-events-dir
 ```
 
-Then score a freeplay goal and inspect the event shape. The tracker may need another field name added.
+Then score a freeplay goal and inspect the event shape plus the JSON files under `.data/latest_statsapi_events/`. The tracker may need another field name added.
 
 ### Replay Last Goal Speed
 
@@ -688,7 +692,7 @@ Run with `--pretty` and inspect whether StatsAPI is sending your player stats in
 .venv/bin/python listen.py --obs-dir ./obs-output --pretty
 ```
 
-The current tracker looks for stat fields like `gameLowFives`, `gameHighFives`, and `gameDemolitions`.
+The current tracker looks for stat fields like `gameLowFives`, `gameHighFives`, `gameDemolitions`, and `Demos`. Deaths are tracked from your own `bDemolished` false-to-true transitions. Live values move the Match column immediately; Session and lifetime counters move only after `MatchEnded` includes a real winning team.
 
 ### Lifetime stats are wrong
 
@@ -736,7 +740,7 @@ npx playwright install chromium
 npm run test:web
 ```
 
-These Playwright tests serve deterministic overlay state locally, assert `match.stats` versus `menu.stats` placement in Chromium, verify icons load, and save screenshots under `test-results/playwright/`.
+These Playwright tests serve deterministic overlay state locally, assert match/freeplay `match.stats` versus menu `menu.stats` placement in Chromium, verify icons load, and save screenshots under `test-results/playwright/`.
 
 Compile-check the Python files:
 

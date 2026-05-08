@@ -16,6 +16,19 @@ FREEPLAY_GOAL_YAML = "freeplay_goal.yml"
 DEJAVU_YAML = "dejavu_player_counter.yml"
 LEGACY_DEJAVU_YAML = "dejavu/player_counter.yml"
 DEJAVU_JSON_BACKUP = "dejavu/player_counter.json.bak"
+FREEPLAY_SPEED_WINDOW_SECONDS = 6.0
+FREEPLAY_SPEED_WINDOW_FRAMES = 720
+FREEPLAY_GOAL_DEDUPE_SECONDS = 2.5
+FREEPLAY_GOAL_DEDUPE_FRAMES = 300
+FREEPLAY_GOAL_DEDUPE_MESSAGES = 20
+KNOWN_SELF_TOKENS = {
+    "76561198080314981",
+    "27492b8e1d074bd69f93fefc7c284205",
+    "399c852cc7ea4522b9e53f472e9f6f2a",
+    "noooo! great pass!",
+    "nonono greatpass",
+    "noooo great pass",
+}
 
 
 def utc_now() -> str:
@@ -857,6 +870,7 @@ class ObservedPlayer:
     name: str | None
     team_num: int | None
     stats: dict[str, Any] = field(default_factory=dict)
+    demolished: bool = False
 
 
 @dataclass
@@ -873,19 +887,34 @@ class CurrentMatch:
     players: dict[str, ObservedPlayer] = field(default_factory=dict)
     stat_values: dict[str, int] = field(default_factory=dict)
     team_scores: dict[int, int] = field(default_factory=dict)
+    self_demolished: bool = False
     counted_without_guid: bool = False
+    recent_update_ball_speeds: list[dict[str, float | None]] = field(default_factory=list)
+    last_update_ball_speed_kph: float | None = None
+    last_freeplay_goal_message_index: int | None = None
+    last_freeplay_goal_elapsed: float | None = None
+    last_freeplay_goal_frame: float | None = None
+    last_freeplay_goal_had_speed: bool = False
 
 
 class OverlayStatsTracker:
     DEACTIVATE_AFTER_EVENTS = {"MatchEnded", "PodiumStart"}
     STAT_FIELDS = {
-        "goals": ("gameGoals", "GameGoals", "game_goals"),
-        "assists": ("gameAssists", "GameAssists", "game_assists"),
-        "saves": ("gameSaves", "GameSaves", "game_saves"),
-        "shots": ("gameShots", "GameShots", "game_shots"),
-        "low_fives": ("gameLowFives", "GameLowFives", "game_low_fives"),
-        "high_fives": ("gameHighFives", "GameHighFives", "game_high_fives"),
-        "demos": ("gameDemolitions", "GameDemolitions", "gameDemos", "GameDemos"),
+        "goals": ("gameGoals", "GameGoals", "game_goals", "Goals", "goals"),
+        "assists": ("gameAssists", "GameAssists", "game_assists", "Assists", "assists"),
+        "saves": ("gameSaves", "GameSaves", "game_saves", "Saves", "saves"),
+        "shots": ("gameShots", "GameShots", "game_shots", "Shots", "shots"),
+        "low_fives": ("gameLowFives", "GameLowFives", "game_low_fives", "LowFives", "lowFives", "low_fives"),
+        "high_fives": (
+            "gameHighFives",
+            "GameHighFives",
+            "game_high_fives",
+            "HighFives",
+            "highFives",
+            "high_fives",
+        ),
+        "demos": ("gameDemolitions", "GameDemolitions", "gameDemos", "GameDemos", "Demos", "Demolitions", "demos"),
+        "deaths": ("gameDeaths", "GameDeaths", "Deaths", "deaths", "TimesDemolished", "timesDemolished"),
     }
     CAREER_NAMES = {
         "goals": "Goals",
@@ -895,6 +924,7 @@ class OverlayStatsTracker:
         "low_fives": "Low Fives",
         "high_fives": "High Fives",
         "demos": "Demolitions",
+        "deaths": "Deaths",
     }
     SPEED_FIELDS = (
         "goalSpeed",
@@ -919,14 +949,18 @@ class OverlayStatsTracker:
         self.streak_count = 0
         self.session_counts = dict.fromkeys(self.STAT_FIELDS, 0)
         self.session_shots: list[float] = []
+        self.last_goal_speed_kph: float | None = None
         self.file_cache: dict[Path, str] = {}
         self.inactive_match_guids: set[str] = set()
+        self.message_index = 0
+        self.self_tokens.update(KNOWN_SELF_TOKENS)
 
         if self.obs_dir is not None:
             self.obs_dir.mkdir(parents=True, exist_ok=True)
             self.write_overlay_files()
 
     def handle_message(self, message: dict[str, Any]) -> None:
+        self.message_index += 1
         event = str(message.get("Event", "Unknown"))
         data = parse_data_field(message)
         self.current.event_name = event
@@ -954,18 +988,23 @@ class OverlayStatsTracker:
         if playlist_id is not None:
             self.current.playlist_id = playlist_id
 
+        self._track_update_state_ball_speed(event, data)
+
         teams = _extract_teams(data)
         if teams:
+            self._maybe_record_freeplay_score_goal(event, data, teams)
             self.current.team_scores.update(teams)
 
         if players:
-            for player in players:
-                if player.unique_id:
-                    self.current.players[player.unique_id] = player
-                if self._is_self(player) and player.team_num is not None:
-                    self.current.own_team = player.team_num
+            if self.current.play_mode in {"match", "freeplay"}:
+                for player in players:
+                    player_key = player.unique_id or player.name
+                    if player_key:
+                        self.current.players[player_key] = player
+                    if self._is_self(player) and player.team_num is not None:
+                        self.current.own_team = player.team_num
 
-            self._update_session_stat_deltas(players)
+                self._update_current_player_stats(players)
 
         self._maybe_record_freeplay_shot(event, data)
 
@@ -1028,35 +1067,37 @@ class OverlayStatsTracker:
                 self.current.event_banner = "MATCH ENDED"
 
     def _is_self(self, player: ObservedPlayer) -> bool:
-        candidates = {_normalize_token(player.unique_id), _normalize_token(player.name)}
+        candidates = _identity_tokens(player.unique_id, player.name)
         return any(candidate and candidate in self.self_tokens for candidate in candidates)
 
-    def _update_session_stat_deltas(self, players: list[ObservedPlayer]) -> None:
+    def _is_self_mapping(self, value: dict[str, Any]) -> bool:
+        candidates = _identity_tokens(_extract_player_id(value), _extract_player_name(value))
+        return any(candidate and candidate in self.self_tokens for candidate in candidates)
+
+    def _update_current_player_stats(self, players: list[ObservedPlayer]) -> None:
         self_player = next((player for player in players if self._is_self(player)), None)
         if self_player is None:
             return
 
-        increments: dict[str, int] = {}
         for stat_key, field_names in self.STAT_FIELDS.items():
+            if stat_key == "deaths":
+                continue
             value = _get_number_from_fields(self_player.stats, field_names)
             if value is None:
                 continue
-            current_value = int(value)
-            previous_value = self.current.stat_values.get(stat_key)
-            delta = current_value if previous_value is None else current_value - previous_value
-            self.current.stat_values[stat_key] = current_value
-            if delta <= 0:
-                continue
-            self.session_counts[stat_key] += delta
-            increments[self.CAREER_NAMES[stat_key]] = increments.get(self.CAREER_NAMES[stat_key], 0) + delta
+            stat_value = max(0, int(value))
+            if stat_key == "goals" and self.current.play_mode == "freeplay":
+                stat_value = max(self.current.stat_values.get("goals", 0), stat_value)
+            self.current.stat_values[stat_key] = stat_value
 
-        if increments:
-            self.store.increment_career_stats(increments)
+        if self_player.demolished and not self.current.self_demolished:
+            self.current.stat_values["deaths"] = self.current.stat_values.get("deaths", 0) + 1
+        self.current.self_demolished = self_player.demolished
 
     def _handle_match_ended(self, data: dict[str, Any]) -> None:
         winner_team = _to_int(data.get("WinnerTeamNum"))
-        if winner_team is None:
-            winner_team = self._winner_from_score()
+        if winner_team not in {0, 1}:
+            winner_team = None
         self.current.winner_team = winner_team
 
         if self.current.own_team is None or winner_team is None:
@@ -1067,16 +1108,6 @@ class OverlayStatsTracker:
             return
         if not match_guid and self.current.counted_without_guid:
             return
-
-        won = winner_team == self.current.own_team
-        if won:
-            self.session_wins += 1
-            self._update_streak("W")
-            self.store.increment_career_stats({"Wins": 1, "Career Record.Total Matches Played": 1})
-        else:
-            self.session_losses += 1
-            self._update_streak("L")
-            self.store.increment_career_stats({"Losses": 1, "Career Record.Total Matches Played": 1})
 
         timestamp = utc_now()
         players = list(self.current.players.values())
@@ -1093,7 +1124,31 @@ class OverlayStatsTracker:
             recorded = True
             self.current.counted_without_guid = True
 
-        if recorded and self.current.playlist_id is not None:
+        if not recorded:
+            return
+
+        won = winner_team == self.current.own_team
+        if won:
+            self.session_wins += 1
+            self._update_streak("W")
+        else:
+            self.session_losses += 1
+            self._update_streak("L")
+
+        career_increments = {
+            "Wins" if won else "Losses": 1,
+            "Career Record.Total Matches Played": 1,
+        }
+        for stat_key, value in self.current.stat_values.items():
+            if value <= 0:
+                continue
+            self.session_counts[stat_key] += value
+            career_name = self.CAREER_NAMES.get(stat_key)
+            if career_name:
+                career_increments[career_name] = career_increments.get(career_name, 0) + value
+        self.store.increment_career_stats(career_increments)
+
+        if self.current.playlist_id is not None:
             for player in players:
                 if not player.unique_id or self._is_self(player) or player.team_num is None:
                     continue
@@ -1108,15 +1163,6 @@ class OverlayStatsTracker:
                 )
             self.store._db().commit()
 
-    def _winner_from_score(self) -> int | None:
-        if 0 not in self.current.team_scores or 1 not in self.current.team_scores:
-            return None
-        blue = self.current.team_scores[0]
-        orange = self.current.team_scores[1]
-        if blue == orange:
-            return None
-        return 0 if blue > orange else 1
-
     def _update_streak(self, kind: str) -> None:
         if self.streak_kind == kind:
             self.streak_count += 1
@@ -1125,25 +1171,121 @@ class OverlayStatsTracker:
             self.streak_count = 1
 
     def _maybe_record_freeplay_shot(self, event: str, data: dict[str, Any]) -> None:
-        speed = _extract_speed_kph(data, self.SPEED_FIELDS)
-        if speed is None:
-            return
-
         event_lower = event.lower()
+        event_token = re.sub(r"[^a-z0-9]", "", event_lower)
         result = _normalize_token(_find_first_key(data, ("result", "Result", "ShotResult")))
         mode = _normalize_token(_find_first_key(data, ("mode", "Mode", "GameMode")))
-        is_goal = "goal" in event_lower or result == "goal"
-        is_freeplay = "freeplay" in event_lower or mode == "freeplay"
+        is_goal = event_token.endswith("goalscored") or event_token == "freeplaygoal" or result == "goal"
+        is_freeplay = "freeplay" in event_lower or mode == "freeplay" or self.current.play_mode == "freeplay"
 
         if not is_goal:
             return
-        if not is_freeplay and self.current.match_guid and self.current.playlist_id is not None:
+        if not self._is_self_goal(data, is_freeplay):
             return
 
-        timestamp = _as_text(_find_first_key(data, ("timestamp", "Timestamp", "time", "Time"))) or utc_now()
-        shot_match_guid = None if is_freeplay else self.current.match_guid
-        self.store.record_shot_speed(speed, shot_match_guid, event, timestamp)
-        self.session_shots.append(speed)
+        speed = _extract_speed_kph(data, self.SPEED_FIELDS)
+        if not is_freeplay:
+            if speed is not None:
+                self.last_goal_speed_kph = speed
+            return
+
+        count = 1 if self.current.play_mode == "freeplay" else 0
+        self._record_freeplay_goal(event, data, speed, count=count)
+
+    def _track_update_state_ball_speed(self, event: str, data: dict[str, Any]) -> None:
+        if event != "UpdateState":
+            return
+
+        speed = _extract_ball_speed_kph(data, self.SPEED_FIELDS)
+        if speed is None:
+            return
+
+        self.current.last_update_ball_speed_kph = speed
+        if speed <= 0:
+            return
+
+        elapsed, frame = _extract_update_timing(data)
+        recent = self.current.recent_update_ball_speeds
+        recent.append({"speed": speed, "elapsed": elapsed, "frame": frame})
+        _prune_recent_update_ball_speeds(recent, elapsed, frame)
+
+    def _maybe_record_freeplay_score_goal(self, event: str, data: dict[str, Any], scores: dict[int, int]) -> None:
+        if event != "UpdateState" or self.current.play_mode != "freeplay":
+            return
+
+        previous_scores = self.current.team_scores
+        if not previous_scores:
+            return
+
+        if _scores_decreased(previous_scores, scores):
+            self.current.recent_update_ball_speeds = []
+            return
+
+        goal_count = _score_increment(previous_scores, scores)
+        if goal_count <= 0:
+            return
+
+        elapsed, frame = _extract_update_timing(data)
+        speed = _best_recent_update_ball_speed(self.current.recent_update_ball_speeds, elapsed, frame)
+        if speed is None or speed <= 0:
+            speed = self.current.last_update_ball_speed_kph
+        if speed is not None and speed <= 0:
+            speed = None
+
+        count = 0 if self._is_recent_freeplay_goal(elapsed, frame) else goal_count
+        self._record_freeplay_goal("UpdateStateScoreIncrease", data, speed, count=count)
+
+    def _record_freeplay_goal(
+        self,
+        event: str,
+        data: dict[str, Any],
+        speed: float | None,
+        *,
+        count: int,
+    ) -> None:
+        if count > 0:
+            self.current.stat_values["goals"] = self.current.stat_values.get("goals", 0) + count
+            self.current.last_freeplay_goal_had_speed = False
+
+        should_record_speed = speed is not None and speed > 0 and (
+            count > 0 or not self.current.last_freeplay_goal_had_speed
+        )
+        if should_record_speed:
+            self.last_goal_speed_kph = speed
+            timestamp = _as_text(_find_first_key(data, ("timestamp", "Timestamp", "time", "Time"))) or utc_now()
+            self.store.record_shot_speed(speed, None, event, timestamp)
+            self.session_shots.append(speed)
+            self.current.last_freeplay_goal_had_speed = True
+
+        elapsed, frame = _extract_update_timing(data)
+        self.current.last_freeplay_goal_message_index = self.message_index
+        self.current.last_freeplay_goal_elapsed = elapsed
+        self.current.last_freeplay_goal_frame = frame
+        self.current.recent_update_ball_speeds = []
+
+    def _is_recent_freeplay_goal(self, elapsed: float | None, frame: float | None) -> bool:
+        last_elapsed = self.current.last_freeplay_goal_elapsed
+        if elapsed is not None and last_elapsed is not None:
+            delta = elapsed - last_elapsed
+            return 0 <= delta <= FREEPLAY_GOAL_DEDUPE_SECONDS
+
+        last_frame = self.current.last_freeplay_goal_frame
+        if frame is not None and last_frame is not None:
+            delta = frame - last_frame
+            return 0 <= delta <= FREEPLAY_GOAL_DEDUPE_FRAMES
+
+        last_message = self.current.last_freeplay_goal_message_index
+        if last_message is None:
+            return False
+        return 0 <= self.message_index - last_message <= FREEPLAY_GOAL_DEDUPE_MESSAGES
+
+    def _is_self_goal(self, data: dict[str, Any], is_freeplay: bool) -> bool:
+        scorer = data.get("Scorer") or data.get("scorer")
+        if isinstance(scorer, dict):
+            return self._is_self_mapping(scorer)
+        if is_freeplay:
+            return True
+        return False
 
     def write_overlay_files(self) -> None:
         if self.obs_dir is None:
@@ -1161,10 +1303,13 @@ class OverlayStatsTracker:
             "session_low_fives.txt": str(self.session_counts["low_fives"]),
             "session_high_fives.txt": str(self.session_counts["high_fives"]),
             "session_demos.txt": str(self.session_counts["demos"]),
+            "session_deaths.txt": str(self.session_counts["deaths"]),
             "recent_mmr.txt": self._format_recent_mmr(),
             "lifetime_low_fives.txt": self._format_number(self.store.get_stat_value("career_stat", "Low Fives")),
             "lifetime_high_fives.txt": self._format_number(self.store.get_stat_value("career_stat", "High Fives")),
             "lifetime_demos.txt": self._format_number(self.store.get_stat_value("career_stat", "Demolitions")),
+            "lifetime_deaths.txt": self._format_number(self.store.get_stat_value("career_stat", "Deaths")),
+            "last_goal_speed.txt": self._format_speed(self.last_goal_speed_kph),
             "freeplay_last_shot.txt": self._format_speed(self.store.get_last_shot_speed()),
             "freeplay_session_best.txt": self._format_speed(max(self.session_shots) if self.session_shots else None),
             "freeplay_all_time_best.txt": self._format_speed(self.store.get_best_shot_speed()),
@@ -1212,6 +1357,7 @@ class OverlayStatsTracker:
                 "playlist_id": self.current.playlist_id,
                 "own_team": self.current.own_team,
                 "winner_team": self.current.winner_team,
+                "last_goal_speed": self._format_speed(self.last_goal_speed_kph),
                 "stats": {stat_key: self.current.stat_values.get(stat_key, 0) for stat_key in self.STAT_FIELDS},
             },
             "session": {
@@ -1225,6 +1371,7 @@ class OverlayStatsTracker:
                 "assists": self._format_number(self.store.get_stat_value("career_stat", "Assists")),
                 "saves": self._format_number(self.store.get_stat_value("career_stat", "Saves")),
                 "shots": self._format_number(self.store.get_stat_value("career_stat", "Shots")),
+                "deaths": self._format_number(self.store.get_stat_value("career_stat", "Deaths")),
                 "low_fives": self._format_number(self.store.get_stat_value("career_stat", "Low Fives")),
                 "high_fives": self._format_number(self.store.get_stat_value("career_stat", "High Fives")),
                 "demos": self._format_number(self.store.get_stat_value("career_stat", "Demolitions")),
@@ -1338,6 +1485,17 @@ def _normalize_token(value: Any) -> str | None:
         return None
     text = text.strip().lower()
     return text or None
+
+
+def _identity_tokens(*values: Any) -> set[str]:
+    tokens = set()
+    for value in values:
+        token = _normalize_token(value)
+        if not token:
+            continue
+        tokens.add(token)
+        tokens.update(part for part in re.split(r"[|:/\\]", token) if part)
+    return tokens
 
 
 def _first_value(mapping: dict[str, Any], keys: tuple[str, ...]) -> Any:
@@ -1458,7 +1616,15 @@ def _extract_players(data: dict[str, Any]) -> list[ObservedPlayer]:
         nested_stats = raw.get("Stats") or raw.get("stats")
         if isinstance(nested_stats, dict):
             stats.update(nested_stats)
-        players.append(ObservedPlayer(unique_id=unique_id, name=name, team_num=team_num, stats=stats))
+        players.append(
+            ObservedPlayer(
+                unique_id=unique_id,
+                name=name,
+                team_num=team_num,
+                stats=stats,
+                demolished=_extract_player_demolished(stats),
+            )
+        )
 
     return players
 
@@ -1504,12 +1670,87 @@ def _extract_player_team(player: dict[str, Any], fallback: int | None) -> int | 
     return fallback
 
 
+def _extract_player_demolished(player: dict[str, Any]) -> bool:
+    return _extract_bool(
+        player,
+        ("bDemolished", "Demolished", "demolished", "isDemolished", "IsDemolished", "bIsDemolished"),
+    ) or False
+
+
 def _get_number_from_fields(stats: dict[str, Any], field_names: tuple[str, ...]) -> float | None:
     for field_name in field_names:
         value = _to_float(stats.get(field_name))
         if value is not None:
             return value
     return None
+
+
+def _extract_ball_speed_kph(data: dict[str, Any], field_names: tuple[str, ...]) -> float | None:
+    ball = _find_first_key(data, ("Ball", "ball"))
+    if not isinstance(ball, dict):
+        return None
+
+    speed = _get_number_from_fields(ball, field_names)
+    if speed is None:
+        return None
+
+    unit = _normalize_token(_find_first_key(ball, ("unit", "Unit", "speedUnit", "SpeedUnit")))
+    if unit is None:
+        unit = _normalize_token(_find_first_key(data, ("unit", "Unit", "speedUnit", "SpeedUnit")))
+    if unit in {"mph", "mi/h"}:
+        return speed * 1.609344
+    return speed
+
+
+def _extract_update_timing(data: dict[str, Any]) -> tuple[float | None, float | None]:
+    elapsed = _to_float(_find_first_key(data, ("Elapsed", "elapsed")))
+    frame = _to_float(_find_first_key(data, ("Frame", "frame")))
+    return elapsed, frame
+
+
+def _prune_recent_update_ball_speeds(
+    recent: list[dict[str, float | None]],
+    elapsed: float | None,
+    frame: float | None,
+) -> None:
+    if elapsed is not None:
+        cutoff = elapsed - FREEPLAY_SPEED_WINDOW_SECONDS
+        recent[:] = [sample for sample in recent if sample.get("elapsed") is None or sample["elapsed"] >= cutoff]
+        return
+
+    if frame is not None:
+        cutoff = frame - FREEPLAY_SPEED_WINDOW_FRAMES
+        recent[:] = [sample for sample in recent if sample.get("frame") is None or sample["frame"] >= cutoff]
+
+
+def _best_recent_update_ball_speed(
+    recent: list[dict[str, float | None]],
+    elapsed: float | None,
+    frame: float | None,
+) -> float | None:
+    if elapsed is not None or frame is not None:
+        _prune_recent_update_ball_speeds(recent, elapsed, frame)
+
+    speeds = [_to_float(sample.get("speed")) for sample in recent if isinstance(sample, dict)]
+    speeds = [speed for speed in speeds if speed is not None]
+    return max(speeds) if speeds else None
+
+
+def _score_increment(previous_scores: dict[int, int], scores: dict[int, int]) -> int:
+    increment = 0
+    for team_num, score in scores.items():
+        previous = previous_scores.get(team_num)
+        if previous is not None and score > previous:
+            increment += score - previous
+    return increment
+
+
+def _scores_decreased(previous_scores: dict[int, int], scores: dict[int, int]) -> bool:
+    for team_num, score in scores.items():
+        previous = previous_scores.get(team_num)
+        if previous is not None and score < previous:
+            return True
+    return False
 
 
 def _extract_speed_kph(data: dict[str, Any], field_names: tuple[str, ...]) -> float | None:

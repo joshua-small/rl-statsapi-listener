@@ -55,8 +55,8 @@ class WebOverlayLayoutTests(unittest.TestCase):
 
         self.assertEqual(layout["safezones"]["match"]["stats"]["size"], {"w": 422, "h": 447})
         self.assertEqual(layout["safezones"]["match"]["stats"]["position"], {"x": 0, "y": 802})
-        self.assertEqual(layout["safezones"]["menu"]["stats"]["size"], {"w": 1567, "h": 51})
-        self.assertEqual(layout["safezones"]["menu"]["stats"]["position"], {"x": 892, "y": 1289})
+        self.assertEqual(layout["safezones"]["menu"]["stats"]["size"], {"w": 684, "h": 102})
+        self.assertEqual(layout["safezones"]["menu"]["stats"]["position"], {"x": 1192, "y": 1238})
         self.assertEqual(layout["scoreboard_layouts"], {})
         self.assertEqual(layout["warnings"], [])
 
