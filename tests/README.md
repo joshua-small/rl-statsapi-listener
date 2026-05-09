@@ -35,6 +35,7 @@ npm run test:web:headed
 | --- | --- | --- |
 | State logic | `test_overlay_state.py` | YAML-like snapshot parsing, SQLite imports, match/session/lifetime counters, Freeplay state, match lifecycle handling, overlay state generation. |
 | CLI and OBS file behavior | `test_cli_obs.py` | OBS text-file output helpers, replay last-goal speed handling, latest StatsAPI frame/event JSON writers, event filename safety. |
+| Entry-point contracts | `test_entry_points.py` | Root compatibility wrappers and the installed console-script target stay pointed at the canonical implementation modules. |
 | Web overlay feed contracts | `test_web_overlay_server.py` | Safezone and scoreboard layout loading for `/layout.json`, including defaults when local data files are absent. |
 | Browser rendering | `web_overlay.playwright.spec.js` | Real browser checks for match, Freeplay, and menu layouts, icon loading, safezone placement, text fit, and screenshot artifacts. |
 | Integration contracts | Spread across Python and Playwright tests | Contracts between listener state, generated JSON/text files, and the browser overlay. Add dedicated tests here when a feature crosses module boundaries. |

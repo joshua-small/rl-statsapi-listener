@@ -134,6 +134,18 @@ Back up `.data`:
 .venv/bin/python tools/backup_data.py
 ```
 
+## Entry Point Compatibility
+
+No entry point is currently deprecated.
+
+Use `listen.py` for local checkout workflows and examples. Installed package
+workflows may use the equivalent `rl-statsapi-listen` console script declared in
+`pyproject.toml`; both route to `rl_statsapi_listener.cli:main`.
+
+OBS setups may keep adding the root `obs_rl_statsapi.py` script. It is a thin
+compatibility wrapper for `integrations/obs/obs_rl_statsapi.py`, which remains
+the canonical file to edit.
+
 ## Repository Map
 
 ```text

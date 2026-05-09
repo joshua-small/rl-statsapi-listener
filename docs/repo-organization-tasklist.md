@@ -1,7 +1,7 @@
 # Repository Organization Tasklist
 
 Created: 2026-05-09 (UTC)
-Status: Execution started; architecture, integration, media asset, test-suite, and data contract documentation completed.
+Status: Execution started; architecture, integration, wrapper, media asset, test-suite, and data contract documentation completed.
 
 ## Objectives
 - Reduce duplicated entry points and stale compatibility layers.
@@ -12,9 +12,11 @@ Status: Execution started; architecture, integration, media asset, test-suite, a
 ## Prioritized Tasklist
 
 ### 1) Audit and classify root-level compatibility wrappers
-- [ ] Confirm whether `listen.py`, `obs_rl_statsapi.py`, and any equivalent package entry points are still all needed.
-- [ ] If redundant wrappers exist, deprecate with warnings first, then remove in a follow-up release.
-- [ ] Add a short migration note in `README.md` for any removed commands.
+- [x] Confirm whether `listen.py`, `obs_rl_statsapi.py`, and any equivalent package entry points are still all needed.
+- [x] Record whether any redundant wrappers need deprecation before removal.
+- [x] Add a short migration note in `README.md` for any removed commands, or explicitly note when no commands were removed.
+
+Completed 2026-05-09 UTC in `README.md`, `docs/architecture.md`, `tests/README.md`, and `tests/test_entry_points.py`. Current decision: no entry point is deprecated. Keep `listen.py` for local checkout workflows, keep the `rl-statsapi-listen` console script for installed-package workflows, and keep root `obs_rl_statsapi.py` so existing OBS scenes that reference that script path do not break. No removal migration note was needed because no commands were removed.
 
 ### 2) Consolidate architecture docs
 - [x] Add a single `docs/architecture.md` with a "current state" diagram and responsibility map.

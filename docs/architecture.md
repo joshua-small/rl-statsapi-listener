@@ -79,17 +79,21 @@ Layout measurements feed only the browser-overlay path:
 
 ## Entry Points
 
-The root entry points are kept for compatibility:
+The supported entry points are:
 
 ```text
-listen.py          -> rl_statsapi_listener.cli.main
-obs_rl_statsapi.py -> integrations.obs.obs_rl_statsapi
+listen.py                  -> rl_statsapi_listener.cli.main
+rl-statsapi-listen         -> rl_statsapi_listener.cli:main
+obs_rl_statsapi.py         -> integrations.obs.obs_rl_statsapi
+integrations/obs/*.py      -> canonical OBS script implementation
 ```
 
-The package also declares the `rl-statsapi-listen` console script in
-`pyproject.toml`. Until the wrapper audit is complete, keep examples using
-`listen.py` for local development and mention the canonical module paths when
-editing implementation files.
+No entry point is currently deprecated. Keep examples using `listen.py` for
+local checkout workflows because it works without package installation. Use the
+`rl-statsapi-listen` console script for installed-package workflows. Keep the
+root `obs_rl_statsapi.py` wrapper so existing OBS scenes that reference that
+file path do not break; make OBS implementation changes under
+`integrations/obs/obs_rl_statsapi.py`.
 
 ## Where To Change Things
 
