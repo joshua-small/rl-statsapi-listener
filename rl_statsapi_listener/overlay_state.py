@@ -887,6 +887,7 @@ class CurrentMatch:
     players: dict[str, ObservedPlayer] = field(default_factory=dict)
     stat_values: dict[str, int] = field(default_factory=dict)
     team_scores: dict[int, int] = field(default_factory=dict)
+    started: bool = False
     self_demolished: bool = False
     counted_without_guid: bool = False
     recent_update_ball_speeds: list[dict[str, float | None]] = field(default_factory=list)
@@ -936,6 +937,26 @@ class OverlayStatsTracker:
         "PostHitSpeed",
         "speed",
         "Speed",
+    )
+    STARTED_EVENTS = {
+        "BallHit",
+        "ClockUpdatedSeconds",
+        "CrossbarHit",
+        "GoalReplayEnd",
+        "GoalReplayStart",
+        "GoalReplayWillEnd",
+        "GoalScored",
+        "RoundStarted",
+        "StatfeedEvent",
+    }
+    PLAYER_ACTIVITY_FIELDS = (
+        "Score",
+        "score",
+        "Touches",
+        "touches",
+        "CarTouches",
+        "carTouches",
+        "car_touches",
     )
 
     def __init__(self, store: StatsStore, obs_dir: Path | None = None):
@@ -1006,6 +1027,7 @@ class OverlayStatsTracker:
 
                 self._update_current_player_stats(players)
 
+        self._update_started_state(event, data, players, teams)
         self._maybe_record_freeplay_shot(event, data)
 
         if event == "MatchEnded":
@@ -1094,6 +1116,61 @@ class OverlayStatsTracker:
             self.current.stat_values["deaths"] = self.current.stat_values.get("deaths", 0) + 1
         self.current.self_demolished = self_player.demolished
 
+    def _update_started_state(
+        self,
+        event: str,
+        data: dict[str, Any],
+        players: list[ObservedPlayer],
+        teams: dict[int, int],
+    ) -> None:
+        if self.current.play_mode != "match" or self.current.started:
+            return
+        if event in self.STARTED_EVENTS:
+            self.current.started = True
+            return
+        if any(score > 0 for score in teams.values()):
+            self.current.started = True
+            return
+        if self._players_have_match_activity(players):
+            self.current.started = True
+            return
+        if self._ball_has_match_activity(data):
+            self.current.started = True
+            return
+        if _extract_bool(data, ("bOvertime", "Overtime", "overtime")):
+            self.current.started = True
+
+    def _players_have_match_activity(self, players: list[ObservedPlayer]) -> bool:
+        for player in players:
+            player_activity = _get_number_from_fields(player.stats, self.PLAYER_ACTIVITY_FIELDS) or 0
+            if player_activity > 0:
+                return True
+            for field_names in self.STAT_FIELDS.values():
+                if (_get_number_from_fields(player.stats, field_names) or 0) > 0:
+                    return True
+        return False
+
+    @staticmethod
+    def _ball_has_match_activity(data: dict[str, Any]) -> bool:
+        ball = _find_first_key(data, ("Ball", "ball"))
+        if not isinstance(ball, dict):
+            return False
+        team_num = _to_int(
+            _first_value(
+                ball,
+                ("TeamNum", "teamNum", "LastTouchTeamNum", "lastTouchTeamNum"),
+            )
+        )
+        if team_num in {0, 1}:
+            return True
+        return (
+            _get_number_from_fields(
+                ball,
+                ("PostHitSpeed", "postHitSpeed", "BallSpeed", "ballSpeed"),
+            )
+            or 0
+        ) > 0
+
     def _handle_match_ended(self, data: dict[str, Any]) -> None:
         winner_team = _to_int(data.get("WinnerTeamNum"))
         if winner_team not in {0, 1}:
@@ -1101,6 +1178,8 @@ class OverlayStatsTracker:
         self.current.winner_team = winner_team
 
         if self.current.own_team is None or winner_team is None:
+            return
+        if not self.current.started:
             return
 
         match_guid = self.current.match_guid

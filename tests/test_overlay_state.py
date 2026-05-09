@@ -662,6 +662,130 @@ class StatsStoreTests(unittest.TestCase):
             self.assertEqual(store.get_stat_value("career_stat", "Deaths"), 5)
             store.close()
 
+    def test_match_ended_without_start_evidence_does_not_count_loss(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data_dir = root / ".data"
+            write(
+                data_dir / "player.yml",
+                """
+                profile:
+                  platformId: me-id
+                  displayName: Me
+                Career Record:
+                  Total Matches Played: 20
+                Stats:
+                  Losses: 4
+                """,
+            )
+            store = StatsStore(root / "stats.sqlite3", data_dir)
+            store.initialize()
+            tracker = OverlayStatsTracker(store)
+
+            tracker.handle_message(
+                {"Event": "MatchInitialized", "Data": {"MatchGuid": "CANCELLED1"}}
+            )
+            tracker.handle_message(
+                {
+                    "Event": "UpdateState",
+                    "Data": {
+                        "MatchGuid": "CANCELLED1",
+                        "Game": {
+                            "TimeSeconds": 92,
+                            "Teams": [
+                                {"TeamNum": 0, "Score": 0},
+                                {"TeamNum": 1, "Score": 0},
+                            ],
+                            "Players": [
+                                {
+                                    "UniqueId": "me-id",
+                                    "Name": "Me",
+                                    "TeamNum": 0,
+                                    "Stats": {
+                                        "Goals": 0,
+                                        "Assists": 0,
+                                        "Saves": 0,
+                                        "Shots": 0,
+                                    },
+                                }
+                            ],
+                        },
+                    },
+                }
+            )
+            tracker.handle_message(
+                {
+                    "Event": "MatchEnded",
+                    "Data": {"MatchGuid": "CANCELLED1", "WinnerTeamNum": 1},
+                }
+            )
+
+            state = tracker.get_overlay_state()
+            self.assertEqual(state["session"]["wins"], 0)
+            self.assertEqual(state["session"]["losses"], 0)
+            self.assertEqual(state["session"]["streak"], "0")
+            self.assertEqual(store.get_stat_value("career_stat", "Losses"), 4)
+            self.assertEqual(
+                store.get_stat_value("career_stat", "Career Record.Total Matches Played"),
+                20,
+            )
+            self.assertFalse(store.match_exists("CANCELLED1"))
+            self.assertEqual(state["context"]["mode"], "menu")
+            self.assertFalse(state["context"]["active"])
+            store.close()
+
+    def test_round_started_allows_zero_score_match_end_to_count(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            data_dir = root / ".data"
+            write(
+                data_dir / "player.yml",
+                """
+                profile:
+                  platformId: me-id
+                  displayName: Me
+                """,
+            )
+            store = StatsStore(root / "stats.sqlite3", data_dir)
+            store.initialize()
+            tracker = OverlayStatsTracker(store)
+
+            tracker.handle_message(
+                {"Event": "MatchInitialized", "Data": {"MatchGuid": "STARTED1"}}
+            )
+            tracker.handle_message(
+                {
+                    "Event": "UpdateState",
+                    "Data": {
+                        "MatchGuid": "STARTED1",
+                        "Game": {
+                            "Teams": [
+                                {"TeamNum": 0, "Score": 0},
+                                {"TeamNum": 1, "Score": 0},
+                            ],
+                            "Players": [
+                                {"UniqueId": "me-id", "Name": "Me", "TeamNum": 0}
+                            ],
+                        },
+                    },
+                }
+            )
+            tracker.handle_message(
+                {"Event": "RoundStarted", "Data": {"MatchGuid": "STARTED1"}}
+            )
+            tracker.handle_message(
+                {
+                    "Event": "MatchEnded",
+                    "Data": {"MatchGuid": "STARTED1", "WinnerTeamNum": 0},
+                }
+            )
+
+            state = tracker.get_overlay_state()
+            self.assertEqual(state["session"]["wins"], 1)
+            self.assertEqual(state["session"]["losses"], 0)
+            self.assertTrue(store.match_exists("STARTED1"))
+            store.close()
+
     def test_last_goal_speed_tracks_only_known_self_scorers_and_persists(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)

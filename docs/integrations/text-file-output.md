@@ -118,7 +118,8 @@ the StatsAPI payload.
 If session counters are not moving, run with `--pretty` and check whether
 StatsAPI is sending the relevant player stat fields. Live Match values can move
 before Session values; Session and lifetime counters only roll forward after a
-winner-bearing `MatchEnded`.
+start-confirmed, winner-bearing `MatchEnded`. Pregame cancellations such as
+not-enough-players lobbies should leave these files unchanged.
 
 If freeplay speed files do not update, run with `--latest-events-dir`, score a
 freeplay goal, and inspect the files under `latest_statsapi_events/`.

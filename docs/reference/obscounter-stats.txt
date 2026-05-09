@@ -34,8 +34,8 @@ behavior alone does not make the stat current overlay scope.
 ### Live Match / Freeplay Stats
 
 These live player-stat aliases are current inputs. They normalize to
-`match.stats`, session counters after a winner-bearing `MatchEnded`, career
-increments where applicable, and browser-overlay values.
+`match.stats`, session counters after a start-confirmed, winner-bearing
+`MatchEnded`, career increments where applicable, and browser-overlay values.
 
 | Normalized field | Current input aliases |
 | --- | --- |
@@ -120,5 +120,6 @@ Before moving any reference-only name into current scope:
    text-file output, browser feed output, or OBS-script-only output.
 3. Add tests for the data source, output contract, and lifecycle boundary. Match
    stats can update live; session/lifetime stats should roll forward only after
-   a winner-bearing `MatchEnded`.
+   a start-confirmed, winner-bearing `MatchEnded`; pregame cancellations should
+   not affect completed-session totals.
 4. Update the relevant integration docs and this reference page.

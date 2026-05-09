@@ -263,7 +263,8 @@ curl http://127.0.0.1:8765/layout.json
 If session counters are not moving, run with `--pretty` and inspect whether
 StatsAPI is sending the relevant player stat fields. Live Match values can move
 before Session values; Session and lifetime counters roll forward only after a
-winner-bearing `MatchEnded`.
+start-confirmed, winner-bearing `MatchEnded`. Pregame cancellations such as
+not-enough-players lobbies should hide the overlay without changing those totals.
 
 ## Privacy And Safety
 
