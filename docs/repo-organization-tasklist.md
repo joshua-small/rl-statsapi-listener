@@ -1,7 +1,7 @@
 # Repository Organization Tasklist
 
 Created: 2026-05-09 (UTC)
-Status: Execution started; media asset, test-suite, and data contract documentation completed.
+Status: Execution started; architecture, integration, media asset, test-suite, and data contract documentation completed.
 
 ## Objectives
 - Reduce duplicated entry points and stale compatibility layers.
@@ -17,22 +17,28 @@ Status: Execution started; media asset, test-suite, and data contract documentat
 - [ ] Add a short migration note in `README.md` for any removed commands.
 
 ### 2) Consolidate architecture docs
-- [ ] Add a single `docs/architecture.md` with a "current state" diagram and responsibility map.
-- [ ] Move deep implementation details out of `README.md` into focused docs pages.
-- [ ] Keep `README.md` as quick-start + decision tree for "Which workflow should I use?"
+- [x] Add a single `docs/architecture.md` with a "current state" diagram and responsibility map.
+- [x] Move deep implementation details out of `README.md` into focused docs pages.
+- [x] Keep `README.md` as quick-start + decision tree for "Which workflow should I use?"
+
+Completed 2026-05-09 UTC in `docs/architecture.md`, `docs/integrations/*.md`, and `README.md`. The README now focuses on workflow selection, common commands, the repository map, docs index, development commands, and high-value troubleshooting.
 
 ### 3) Normalize integration documentation
-- [ ] Create dedicated docs pages for each integration path:
+- [x] Create dedicated docs pages for each integration path:
   - OBS Python script workflow
   - Text-file output workflow
   - Browser overlay workflow
   - Windows WebView host workflow
-- [ ] Ensure each page has setup steps, known limitations, and troubleshooting.
+- [x] Ensure each page has setup steps, known limitations, and troubleshooting.
+
+Completed 2026-05-09 UTC under `docs/integrations/`. The Windows WebView page keeps the operational workflow in docs while leaving implementation/build details in `integrations/windows-webview-host/README.md`.
 
 ### 4) Prune outdated references and legacy terminology
 - [ ] Review `docs/reference/obscounter-stats.txt` and annotate whether each item is still in scope.
 - [ ] Remove or clearly mark aspirational/unfinished features in docs to reduce confusion.
-- [ ] Check for stale commands/flags in README examples vs actual CLI help output.
+- [x] Check for stale commands/flags in README examples vs actual CLI help output.
+
+Partially completed 2026-05-09 UTC: README command examples were checked against `.venv/bin/python listen.py --help` while consolidating architecture/integration docs. The OBSCounter reference and broader aspirational feature pruning remain open.
 
 ### 5) Reorganize media assets for maintainability
 - [x] Establish a documented naming convention for `media/icons/**`.
