@@ -1,7 +1,7 @@
 # Repository Organization Tasklist
 
 Created: 2026-05-09 (UTC)
-Status: Execution started; media asset documentation and test-suite discoverability completed.
+Status: Execution started; media asset, test-suite, and data contract documentation completed.
 
 ## Objectives
 - Reduce duplicated entry points and stale compatibility layers.
@@ -54,9 +54,11 @@ Completed 2026-05-09 UTC in `tests/README.md`. No test files were moved; the spl
 - [ ] Add a periodic check for broken internal markdown links.
 
 ### 8) Document data directory contracts
-- [ ] Add `docs/data-contracts.md` for `.data` inputs/outputs and schema expectations.
-- [ ] Explicitly version snapshot file expectations to prevent silent importer drift.
-- [ ] Document backup/restore workflows around `tools/backup_data.py` and SQLite files.
+- [x] Add `docs/data-contracts.md` for `.data` inputs/outputs and schema expectations.
+- [x] Explicitly version snapshot file expectations to prevent silent importer drift.
+- [x] Document backup/restore workflows around `tools/backup_data.py` and SQLite files.
+
+Completed 2026-05-09 UTC in `docs/data-contracts.md`. Current contract version is `data-contracts-v1`; snapshot shapes are documented as versioned source-controlled expectations without requiring an in-file version key yet. Backup and restore guidance covers `tools/backup_data.py`, archive manifests, and SQLite rebuild/restore choices.
 
 ## Suggested Execution Phases
 

@@ -91,6 +91,7 @@ If you manually edit or replace the `.data/*.yml` snapshot files later, run:
 ├── tools/
 │   └── backup_data.py                # Local .data backup helper
 ├── docs/
+│   ├── data-contracts.md             # Versioned .data input/output and backup contracts
 │   ├── media-assets.md               # Icon naming convention and manifest
 │   ├── repo-organization-tasklist.md  # Repository organization work tracker
 │   ├── web-overlay-layout.md         # Browser overlay safezone/layout notes
@@ -323,6 +324,8 @@ Important files:
 - `.data/schemas/scoreboard-layouts.schema.json`: Draft schema/reference for the scoreboard layout capture data.
 - `.data/rl_stats.sqlite3`: Generated SQLite database. This appears after running the listener with overlay stats enabled.
 
+The versioned source-controlled contract for these files lives in `docs/data-contracts.md`.
+
 Why it is here:
 
 - Some Rocket League career data is not currently available live.
@@ -349,6 +352,7 @@ Source-controlled project notes and reference material that are useful for plann
 
 Important files:
 
+- `docs/data-contracts.md`: Versioned `.data` input/output expectations, SQLite ownership notes, and backup/restore workflow.
 - `docs/media-assets.md`: Naming convention, retention notes, and a lightweight manifest for `media/icons/**`.
 - `docs/repo-organization-tasklist.md`: Working task list for repository cleanup and documentation consolidation.
 - `docs/web-overlay-layout.md`: Notes for `.data/safezones.yml`, `.data/scoreboard-layouts.json`, and the current browser overlay layout contract.
