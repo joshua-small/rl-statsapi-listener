@@ -1,7 +1,7 @@
 # Repository Organization Tasklist
 
 Created: 2026-05-09 (UTC)
-Status: Planning only (no execution started)
+Status: Execution started; media asset documentation and test-suite discoverability completed.
 
 ## Objectives
 - Reduce duplicated entry points and stale compatibility layers.
@@ -35,14 +35,18 @@ Status: Planning only (no execution started)
 - [ ] Check for stale commands/flags in README examples vs actual CLI help output.
 
 ### 5) Reorganize media assets for maintainability
-- [ ] Establish a documented naming convention for `media/icons/**`.
-- [ ] Decide whether `media/icons/rank/old/` should be archived externally or retained with explicit rationale.
-- [ ] Add a lightweight asset manifest (filename -> semantic meaning) for non-obvious icons.
+- [x] Establish a documented naming convention for `media/icons/**`.
+- [x] Decide whether `media/icons/rank/old/` should be archived externally or retained with explicit rationale.
+- [x] Add a lightweight asset manifest (filename -> semantic meaning) for non-obvious icons.
+
+Completed 2026-05-09 UTC in `docs/media-assets.md`. Current decision: retain `media/icons/rank/old/` as an explicit rollback/comparison set and keep runtime code pointed at `media/icons/rank/`.
 
 ### 6) Improve test-suite discoverability and grouping
-- [ ] Split tests conceptually (state logic, CLI behavior, web overlay rendering, integration contracts).
-- [ ] Add a short `tests/README.md` explaining how to run fast vs full test paths.
-- [ ] Identify any test fixtures that can be centralized to reduce duplication.
+- [x] Split tests conceptually (state logic, CLI behavior, web overlay rendering, integration contracts).
+- [x] Add a short `tests/README.md` explaining how to run fast vs full test paths.
+- [x] Identify any test fixtures that can be centralized to reduce duplication.
+
+Completed 2026-05-09 UTC in `tests/README.md`. No test files were moved; the split is documented by behavioral surface so future changes can be organized without disturbing the current suite.
 
 ### 7) Add repository hygiene automation
 - [ ] Add a minimal lint/format/type-check matrix appropriate to Python + JS test tooling.

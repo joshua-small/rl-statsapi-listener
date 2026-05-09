@@ -86,10 +86,13 @@ If you manually edit or replace the `.data/*.yml` snapshot files later, run:
 ├── package.json                      # Playwright browser-rendering test tooling
 ├── playwright.config.js              # Web overlay screenshot/layout test config
 ├── tests/
+│   ├── README.md                     # Test groups and run paths
 │   └── test_*.py                     # Unit tests
 ├── tools/
 │   └── backup_data.py                # Local .data backup helper
 ├── docs/
+│   ├── media-assets.md               # Icon naming convention and manifest
+│   ├── repo-organization-tasklist.md  # Repository organization work tracker
 │   ├── web-overlay-layout.md         # Browser overlay safezone/layout notes
 │   └── reference/
 │       └── obscounter-stats.txt      # OBSCounter datapoint reference list
@@ -346,6 +349,8 @@ Source-controlled project notes and reference material that are useful for plann
 
 Important files:
 
+- `docs/media-assets.md`: Naming convention, retention notes, and a lightweight manifest for `media/icons/**`.
+- `docs/repo-organization-tasklist.md`: Working task list for repository cleanup and documentation consolidation.
 - `docs/web-overlay-layout.md`: Notes for `.data/safezones.yml`, `.data/scoreboard-layouts.json`, and the current browser overlay layout contract.
 - `docs/reference/obscounter-stats.txt`: Placeholder/reference list of all the datapoints OBSCounter exposed.
 
