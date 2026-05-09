@@ -19,9 +19,18 @@ Equivalent direct command:
 Full local pass for changes that touch overlay rendering, safezone layout, browser assets, or web feed behavior:
 
 ```bash
-npm run test:python
-npm run test:web
+npm run check
 ```
+
+Fast hygiene pass for docs-only or Python-only changes:
+
+```bash
+npm run check:quick
+```
+
+`check:quick` runs text-format checks, Python compile checks, documentation
+checks, Python tests, and JavaScript syntax checks. `check` adds the Playwright
+browser-rendering tests.
 
 Use headed browser tests only while debugging layout interactively:
 

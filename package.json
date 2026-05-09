@@ -4,6 +4,12 @@
   "private": true,
   "description": "Local Rocket League StatsAPI listener and overlay helper.",
   "scripts": {
+    "check": "npm run check:quick && npm run test:web",
+    "check:quick": "npm run lint:format && npm run lint:python && npm run lint:docs && npm run test:python && npm run lint:js",
+    "lint:docs": ".venv/bin/python tools/check_docs.py",
+    "lint:format": ".venv/bin/python tools/check_text_format.py",
+    "lint:js": "node tools/check_js_syntax.js",
+    "lint:python": ".venv/bin/python -m compileall -q listen.py obs_rl_statsapi.py rl_statsapi_listener integrations tests tools",
     "test:python": ".venv/bin/python -m unittest discover -s tests -v",
     "test:web": "playwright test",
     "test:web:headed": "playwright test --headed"

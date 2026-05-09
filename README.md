@@ -25,7 +25,7 @@ Create OBS Text Sources using the names configured in the script settings. The
 root `obs_rl_statsapi.py` is a compatibility wrapper; the canonical script is
 `integrations/obs/obs_rl_statsapi.py`.
 
-See `docs/integrations/obs-python-script.md`.
+See [docs/integrations/obs-python-script.md](docs/integrations/obs-python-script.md).
 
 ### Text Files
 
@@ -38,7 +38,7 @@ Sources:
 
 Then configure OBS Text Sources to read the generated `.txt` files.
 
-See `docs/integrations/text-file-output.md`.
+See [docs/integrations/text-file-output.md](docs/integrations/text-file-output.md).
 
 ### Browser Overlay
 
@@ -56,7 +56,7 @@ http://127.0.0.1:8765/
 
 Use that URL in an OBS Browser Source or in the Windows WebView host.
 
-See `docs/integrations/browser-overlay.md`.
+See [docs/integrations/browser-overlay.md](docs/integrations/browser-overlay.md).
 
 ### Windows WebView Host
 
@@ -76,7 +76,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$(wslpath -w integratio
 The host starts topmost and click-through. Use `Ctrl+Shift+F10` to toggle
 click-through, `Ctrl+Shift+F11` to reload, and `Ctrl+Shift+F9` to exit.
 
-See `docs/integrations/windows-webview-host.md`.
+See [docs/integrations/windows-webview-host.md](docs/integrations/windows-webview-host.md).
 
 ## Which Workflow Should I Use?
 
@@ -152,6 +152,7 @@ the canonical file to edit.
 .
 ├── listen.py                         # Compatibility wrapper for the CLI
 ├── obs_rl_statsapi.py                # Compatibility wrapper for the OBS script
+├── .github/workflows/                # CI hygiene checks
 ├── pyproject.toml                    # Package metadata and console script config
 ├── rl_statsapi_listener/
 │   ├── cli.py                        # Main StatsAPI socket listener
@@ -168,7 +169,7 @@ the canonical file to edit.
 └── .data/                            # Ignored personal/runtime data
 ```
 
-Architecture and ownership details live in `docs/architecture.md`.
+Architecture and ownership details live in [docs/architecture.md](docs/architecture.md).
 
 ## Runtime Data
 
@@ -189,29 +190,39 @@ Important files:
 | `.data/scoreboard-layouts.json` | Measured scoreboard layout data. Reference only until a future theme renderer uses it. |
 | `.data/rl_stats.sqlite3` | Generated SQLite database. |
 
-The versioned contract for these files is in `docs/data-contracts.md`.
+The versioned contract for these files is in [docs/data-contracts.md](docs/data-contracts.md).
 
 ## Documentation
 
 | Doc | Purpose |
 | --- | --- |
-| `docs/architecture.md` | Current data flow, ownership map, and change locations. |
-| `docs/integrations/obs-python-script.md` | Direct OBS Python script workflow. |
-| `docs/integrations/text-file-output.md` | Listener-generated OBS text-file workflow. |
-| `docs/integrations/browser-overlay.md` | Browser overlay workflow and feeds. |
-| `docs/integrations/windows-webview-host.md` | Transparent Windows WebView host workflow. |
-| `docs/data-contracts.md` | `.data` inputs/outputs, SQLite ownership, backup/restore workflow. |
-| `docs/media-assets.md` | Icon naming convention, rank icon policy, and asset manifest. |
-| `docs/web-overlay-layout.md` | Browser overlay safezone and layout feed contract. |
-| `docs/reference/obscounter-stats.txt` | Scoped OBSCounter prior-art stat inventory. |
-| `tests/README.md` | Test grouping and fast/full run paths. |
+| [docs/architecture.md](docs/architecture.md) | Current data flow, ownership map, and change locations. |
+| [docs/integrations/obs-python-script.md](docs/integrations/obs-python-script.md) | Direct OBS Python script workflow. |
+| [docs/integrations/text-file-output.md](docs/integrations/text-file-output.md) | Listener-generated OBS text-file workflow. |
+| [docs/integrations/browser-overlay.md](docs/integrations/browser-overlay.md) | Browser overlay workflow and feeds. |
+| [docs/integrations/windows-webview-host.md](docs/integrations/windows-webview-host.md) | Transparent Windows WebView host workflow. |
+| [docs/data-contracts.md](docs/data-contracts.md) | `.data` inputs/outputs, SQLite ownership, backup/restore workflow. |
+| [docs/media-assets.md](docs/media-assets.md) | Icon naming convention, rank icon policy, and asset manifest. |
+| [docs/web-overlay-layout.md](docs/web-overlay-layout.md) | Browser overlay safezone and layout feed contract. |
+| [docs/reference/obscounter-stats.txt](docs/reference/obscounter-stats.txt) | Scoped OBSCounter prior-art stat inventory. |
+| [tests/README.md](tests/README.md) | Test grouping and fast/full run paths. |
 
 ## Development
+
+Run the fast local hygiene pass:
+
+```bash
+npm run check:quick
+```
+
+That checks tracked text formatting, compile-checks Python, validates listener
+CLI examples and internal Markdown links in docs, runs the Python tests, and
+syntax-checks JavaScript.
 
 Run the Python tests:
 
 ```bash
-.venv/bin/python -m unittest discover -s tests -v
+npm run test:python
 ```
 
 Run the browser-rendering tests for the web overlay:
@@ -222,11 +233,14 @@ npx playwright install chromium
 npm run test:web
 ```
 
-Compile-check the Python files:
+Run the full local check, including Playwright:
 
 ```bash
-.venv/bin/python -m py_compile listen.py obs_rl_statsapi.py rl_statsapi_listener/cli.py rl_statsapi_listener/overlay_state.py rl_statsapi_listener/web_overlay_server.py integrations/obs/obs_rl_statsapi.py tests/test_overlay_state.py tools/backup_data.py
+npm run check
 ```
+
+CI mirrors these checks in `.github/workflows/hygiene.yml` on pushes, pull
+requests, a weekly schedule, and manual dispatch.
 
 The Python listener uses only the Python standard library. The Windows host uses
 .NET 8 and WebView2.

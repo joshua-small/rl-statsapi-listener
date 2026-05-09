@@ -1,7 +1,7 @@
 # Repository Organization Tasklist
 
 Created: 2026-05-09 (UTC)
-Status: Execution started; architecture, integration, wrapper, reference-pruning, media asset, test-suite, and data contract documentation completed.
+Status: Completed; architecture, integration, wrapper, reference-pruning, media asset, test-suite, data contract documentation, and repository hygiene automation completed.
 
 ## Objectives
 - Reduce duplicated entry points and stale compatibility layers.
@@ -57,9 +57,11 @@ Completed 2026-05-09 UTC in `docs/media-assets.md`. Current decision: retain `me
 Completed 2026-05-09 UTC in `tests/README.md`. No test files were moved; the split is documented by behavioral surface so future changes can be organized without disturbing the current suite.
 
 ### 7) Add repository hygiene automation
-- [ ] Add a minimal lint/format/type-check matrix appropriate to Python + JS test tooling.
-- [ ] Add a CI check that validates docs examples against current CLI flags where practical.
-- [ ] Add a periodic check for broken internal markdown links.
+- [x] Add a minimal lint/format/type-check matrix appropriate to Python + JS test tooling.
+- [x] Add a CI check that validates docs examples against current CLI flags where practical.
+- [x] Add a periodic check for broken internal markdown links.
+
+Completed 2026-05-09 UTC in `package.json`, `tools/check_text_format.py`, `tools/check_docs.py`, `tools/check_js_syntax.js`, `.github/workflows/hygiene.yml`, `README.md`, and `tests/README.md`. Current decision: keep automation dependency-light. Python uses stdlib formatting/compile/doc checks plus unittest, JavaScript uses Node syntax checks plus the existing Playwright suite, and the scheduled GitHub Actions workflow reruns the docs/link check weekly.
 
 ### 8) Document data directory contracts
 - [x] Add `docs/data-contracts.md` for `.data` inputs/outputs and schema expectations.
