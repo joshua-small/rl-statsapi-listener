@@ -47,7 +47,7 @@ The browser layout is covered by `tests/web_overlay.playwright.spec.js`, which c
 
 `.data/safezones.yml`
 
-Stores measured safe rectangles for overlay surfaces. The implemented browser overlay reads `match.stats` when `context.mode` is `match` or `freeplay`, otherwise `menu.stats`. Other entries such as `match_conditions`, `series_wins`, `boost`, and `controller` are preserved as future layout data.
+Stores measured safe rectangles for overlay surfaces. The implemented browser overlay reads `match.stats` when `context.mode` is `match` or `freeplay`, otherwise `menu.stats`. Other entries such as `match_conditions`, `series_wins`, `boost`, and `controller` are reference data only until code explicitly renders those surfaces.
 
 `.data/scoreboard-layouts.json`
 
@@ -72,7 +72,10 @@ Draft schema/reference for the scoreboard layout capture data. Keep this aligned
 
 Missing layout files are allowed. The server falls back to the current `match.stats` default and an empty scoreboard layout. Malformed files are reported in `warnings` so the overlay can still start. If safezone entries extend beyond the default reference bounds, `/layout.json` reports the larger inferred reference size.
 
-## Future Theme Notes
+## Roadmap-Only Theme Notes
+
+The notes below are not current overlay behavior. They are preserved only to
+keep the measured scoreboard layout data useful for a later renderer.
 
 The captured scoreboard layout data is intended for later RLCS-style broadcaster HUD themes. Useful next steps:
 

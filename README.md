@@ -186,7 +186,7 @@ Important files:
 | `.data/freeplay_goal.yml` | Initial freeplay goal speed baseline. |
 | `.data/dejavu_player_counter.yml` | Imported Deja-Vu player encounter records. |
 | `.data/safezones.yml` | Measured browser overlay safezone rectangles. |
-| `.data/scoreboard-layouts.json` | Measured scoreboard layout data for future themes. |
+| `.data/scoreboard-layouts.json` | Measured scoreboard layout data. Reference only until a future theme renderer uses it. |
 | `.data/rl_stats.sqlite3` | Generated SQLite database. |
 
 The versioned contract for these files is in `docs/data-contracts.md`.
@@ -203,6 +203,7 @@ The versioned contract for these files is in `docs/data-contracts.md`.
 | `docs/data-contracts.md` | `.data` inputs/outputs, SQLite ownership, backup/restore workflow. |
 | `docs/media-assets.md` | Icon naming convention, rank icon policy, and asset manifest. |
 | `docs/web-overlay-layout.md` | Browser overlay safezone and layout feed contract. |
+| `docs/reference/obscounter-stats.txt` | Scoped OBSCounter prior-art stat inventory. |
 | `tests/README.md` | Test grouping and fast/full run paths. |
 
 ## Development

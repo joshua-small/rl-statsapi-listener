@@ -1,535 +1,124 @@
-aerialGoals
-assists
-averageAerialGoals
-averageAssists
-averageBackwardsGoals
-averageBicycleGoals
-averageBicycleHits
-averageCenters
-averageClears
-averageDamages
-averageDeaths
-averageDefenseTime
-averageDemolitions
-averageEpicSaves
-averageExterminations
-averageFirstTouchs
-averageGoals
-averageHatTricks
-averageHighFives
-averageKO_AerialHeavyHit
-averageKO_AerialLightHit
-averageKO_BlockTaken
-averageKO_Death
-averageKO_DoubleKO
-averageKO_Grabbed
-averageKO_HeavyBlock
-averageKO_HeavyHit
-averageKO_HitTaken
-averageKO_Knockout
-averageKO_KnockoutAssist
-averageKO_LightBlock
-averageKO_LightHit
-averageKO_PlayerGrabbed
-averageKO_PlayerThrown
-averageKO_Thrown
-averageKO_Winner
-averageLongGoals
-averageLosses
-averageLowFives
-averageMvps
-averageOffenseTime
-averageOvertimeGoals
-averageOwnGoals
-averagePlaymakers
-averagePoints
-averagePoolShots
-averageSaves
-averageSaviors
-averageShots
-averageSwishs
-averageTimePlayed
-averageTotalSaves
-averageTurtleGoals
-averageUltraDamages
-averageWins
-backwardsGoals
-bicycleGoals
-bicycleHits
-AverageCareerAerialGoals
-AverageCareerAerialHits
-AverageCareerAssists
-AverageCareerBackwardsGoals
-AverageCareerBallHits
-AverageCareerBicycleGoals
-AverageCareerBicycleHits
-AverageCareerBoostPickups
-AverageCareerBreakoutDamages
-AverageCareerBreakoutDamagesLarge
-AverageCareerCarTouches
-AverageCareerCenters
-AverageCareerClears
-AverageCareerDemolitions
-AverageCareerEpicSaves
-AverageCareerExterminations
-AverageCareerFastestGoals
-AverageCareerFewestBallTouches
-AverageCareerFewestBoostPickups
-AverageCareerFirstTouches
-AverageCareerFreezeSaves
-AverageCareerFurthestGoals
-AverageCareerGoals
-AverageCareerHatTricks
-AverageCareerHighFives
-AverageCareerHoopsSwishGoals
-AverageCareerJuggleHits
-AverageCareerLongGoals
-AverageCareerLosses
-AverageCareerLowFives
-AverageCareerMostBallTouches
-AverageCareerMostBoostPickups
-AverageCareerMVPs
-AverageCareerOvertimeGoals
-AverageCareerOwnGoals
-AverageCareerPlaymakers
-AverageCareerPoolShots
-AverageCareerSaves
-AverageCareerSaviors
-AverageCareerShots
-AverageCareerSlowestGoals
-AverageCareerTimePlayed
-AverageCareerTurtleGoals
-AverageCareerWins
-AverageCareer_KO_Death
-AverageCareer_KO_Grabbed
-AverageCareer_KO_HeavyBlock
-AverageCareer_KO_HeavyHit
-AverageCareer_KO_HitTaken
-AverageCareer_KO_Knockout
-AverageCareer_KO_LightHit
-AverageCareer_KO_Thrown
-AverageCareer_KO_Winner
-CasualCareerAerialGoals
-CasualCareerAerialHits
-CasualCareerAssists
-CasualCareerBackwardsGoals
-CasualCareerBallHits
-CasualCareerBicycleGoals
-CasualCareerBicycleHits
-CasualCareerBoostPickups
-CasualCareerBreakoutDamages
-CasualCareerBreakoutDamagesLarge
-CasualCareerCarTouches
-CasualCareerCenters
-CasualCareerClears
-CasualCareerDemolitions
-CasualCareerEpicSaves
-CasualCareerExterminations
-CasualCareerFastestGoals
-CasualCareerFewestBallTouches
-CasualCareerFewestBoostPickups
-CasualCareerFirstTouches
-CasualCareerFreezeSaves
-CasualCareerFurthestGoals
-CasualCareerGames
-CasualCareerGoals
-CasualCareerHatTricks
-CasualCareerHighFives
-CasualCareerHoopsSwishGoals
-CasualCareerJuggleHits
-CasualCareerLongGoals
-CasualCareerLosses
-CasualCareerLowFives
-CasualCareerMostBallTouches
-CasualCareerMostBoostPickups
-CasualCareerMVPs
-CasualCareerOvertimeGoals
-CasualCareerOwnGoals
-CasualCareerPlaymakers
-CasualCareerPoolShots
-CasualCareerSaves
-CasualCareerSaviors
-CasualCareerShots
-CasualCareerSlowestGoals
-CasualCareerTimePlayed
-CasualCareerTurtleGoals
-CasualCareerWins
-CasualCareer_KO_Death
-CasualCareer_KO_Grabbed
-CasualCareer_KO_HeavyBlock
-CasualCareer_KO_HeavyHit
-CasualCareer_KO_HitTaken
-CasualCareer_KO_Knockout
-CasualCareer_KO_LightHit
-CasualCareer_KO_Thrown
-CasualCareer_KO_Winner
-PrivateCareerAerialGoals
-PrivateCareerAerialHits
-PrivateCareerAssists
-PrivateCareerBackwardsGoals
-PrivateCareerBallHits
-PrivateCareerBicycleGoals
-PrivateCareerBicycleHits
-PrivateCareerBoostPickups
-PrivateCareerBreakoutDamages
-PrivateCareerBreakoutDamagesLarge
-PrivateCareerCarTouches
-PrivateCareerCenters
-PrivateCareerClears
-PrivateCareerDemolitions
-PrivateCareerEpicSaves
-PrivateCareerExterminations
-PrivateCareerFastestGoals
-PrivateCareerFewestBallTouches
-PrivateCareerFewestBoostPickups
-PrivateCareerFirstTouches
-PrivateCareerFreezeSaves
-PrivateCareerFurthestGoals
-PrivateCareerGames
-PrivateCareerGoals
-PrivateCareerHatTricks
-PrivateCareerHighFives
-PrivateCareerHoopsSwishGoals
-PrivateCareerJuggleHits
-PrivateCareerLongGoals
-PrivateCareerLosses
-PrivateCareerLowFives
-PrivateCareerMostBallTouches
-PrivateCareerMostBoostPickups
-PrivateCareerMVPs
-PrivateCareerOvertimeGoals
-PrivateCareerOwnGoals
-PrivateCareerPlaymakers
-PrivateCareerPoolShots
-PrivateCareerSaves
-PrivateCareerSaviors
-PrivateCareerShots
-PrivateCareerSlowestGoals
-PrivateCareerTimePlayed
-PrivateCareerTurtleGoals
-PrivateCareerWins
-PrivateCareer_KO_Death
-PrivateCareer_KO_Grabbed
-PrivateCareer_KO_HeavyBlock
-PrivateCareer_KO_HeavyHit
-PrivateCareer_KO_HitTaken
-PrivateCareer_KO_Knockout
-PrivateCareer_KO_LightHit
-PrivateCareer_KO_Thrown
-PrivateCareer_KO_Winner
-RankedCareerAerialGoals
-RankedCareerAerialHits
-RankedCareerAssists
-RankedCareerBackwardsGoals
-RankedCareerBallHits
-RankedCareerBicycleGoals
-RankedCareerBicycleHits
-RankedCareerBoostPickups
-RankedCareerBreakoutDamages
-RankedCareerBreakoutDamagesLarge
-RankedCareerCarTouches
-RankedCareerCenters
-RankedCareerClears
-RankedCareerDemolitions
-RankedCareerEpicSaves
-RankedCareerExterminations
-RankedCareerFastestGoals
-RankedCareerFewestBallTouches
-RankedCareerFewestBoostPickups
-RankedCareerFirstTouches
-RankedCareerFreezeSaves
-RankedCareerFurthestGoals
-RankedCareerGames
-RankedCareerGoals
-RankedCareerHatTricks
-RankedCareerHighFives
-RankedCareerHoopsSwishGoals
-RankedCareerJuggleHits
-RankedCareerLongGoals
-RankedCareerLosses
-RankedCareerLowFives
-RankedCareerMostBallTouches
-RankedCareerMostBoostPickups
-RankedCareerMVPs
-RankedCareerOvertimeGoals
-RankedCareerOwnGoals
-RankedCareerPlaymakers
-RankedCareerPoolShots
-RankedCareerSaves
-RankedCareerSaviors
-RankedCareerShots
-RankedCareerSlowestGoals
-RankedCareerTimePlayed
-RankedCareerTurtleGoals
-RankedCareerWins
-RankedCareer_KO_Death
-RankedCareer_KO_Grabbed
-RankedCareer_KO_HeavyBlock
-RankedCareer_KO_HeavyHit
-RankedCareer_KO_HitTaken
-RankedCareer_KO_Knockout
-RankedCareer_KO_LightHit
-RankedCareer_KO_Thrown
-RankedCareer_KO_Winner
-TotalCareerAerialGoals
-TotalCareerAerialHits
-TotalCareerAssists
-TotalCareerBackwardsGoals
-TotalCareerBallHits
-TotalCareerBicycleGoals
-TotalCareerBicycleHits
-TotalCareerBoostPickups
-TotalCareerBreakoutDamages
-TotalCareerBreakoutDamagesLarge
-TotalCareerCarTouches
-TotalCareerCenters
-TotalCareerClears
-TotalCareerDemolitions
-TotalCareerEpicSaves
-TotalCareerExterminations
-TotalCareerFastestGoals
-TotalCareerFewestBallTouches
-TotalCareerFewestBoostPickups
-TotalCareerFirstTouches
-TotalCareerFreezeSaves
-TotalCareerFurthestGoals
-TotalCareerGames
-TotalCareerGoals
-TotalCareerHatTricks
-TotalCareerHighFives
-TotalCareerHoopsSwishGoals
-TotalCareerJuggleHits
-TotalCareerLongGoals
-TotalCareerLosses
-TotalCareerLowFives
-TotalCareerMostBallTouches
-TotalCareerMostBoostPickups
-TotalCareerMVPs
-TotalCareerOvertimeGoals
-TotalCareerOwnGoals
-TotalCareerPlaymakers
-TotalCareerPoolShots
-TotalCareerSaves
-TotalCareerSaviors
-TotalCareerShots
-TotalCareerSlowestGoals
-TotalCareerTimePlayed
-TotalCareerTurtleGoals
-TotalCareerWins
-TotalCareer_KO_Death
-TotalCareer_KO_Grabbed
-TotalCareer_KO_HeavyBlock
-TotalCareer_KO_HeavyHit
-TotalCareer_KO_HitTaken
-TotalCareer_KO_Knockout
-TotalCareer_KO_LightHit
-TotalCareer_KO_Thrown
-TotalCareer_KO_Winner
-centers
-clears
-damages
-deaths
-defenseTime
-demolitions
-epicSaves
-exterminations
-firstTouchs
-gameAerialGoals
-gameAssists
-gameBackwardsGoals
-gameBicycleGoals
-gameBicycleHits
-gameCenters
-gameClears
-gameDamages
-gameDeaths
-gameDefenseTime
-gameDemolitions
-gameEpicSaves
-gameExterminations
-gameFirstTouchs
-gameGoals
-gameHatTricks
-gameHighFives
-gameKDRatio
-gameKO_AerialHeavyHit
-gameKO_AerialLightHit
-gameKO_BlockTaken
-gameKO_Death
-gameKO_DoubleKO
-gameKO_Grabbed
-gameKO_HeavyBlock
-gameKO_HeavyHit
-gameKO_HitTaken
-gameKO_Knockout
-gameKO_KnockoutAssist
-gameKO_LightBlock
-gameKO_LightHit
-gameKO_PlayerGrabbed
-gameKO_PlayerThrown
-gameKO_Thrown
-gameKO_Winner
-gameLongGoals
-gameLowFives
-gameOffenseTime
-gameOvertimeGoals
-gameOwnGoals
-gamePlaymakers
-gamePoints
-gamePoolShots
-games
-gameSaves
-gameSaviors
-gameShootingPercentage
-gameShots
-gameSwishs
-gameTimePlayed
-gameTotalSaves
-gameTurtleGoals
-gameUltraDamages
-goals
-hatTricks
-highFives
-KDRatio
-KO_AerialHeavyHit
-KO_AerialLightHit
-KO_BlockTaken
-KO_Death
-KO_DoubleKO
-KO_Grabbed
-KO_HeavyBlock
-KO_HeavyHit
-KO_HitTaken
-KO_Knockout
-KO_KnockoutAssist
-KO_LightBlock
-KO_LightHit
-KO_PlayerGrabbed
-KO_PlayerThrown
-KO_Thrown
-KO_Winner
-longGoals
-losses
-lowFives
-missedExterminationPercent
-mvps
-offenseTime
-overtimeGoals
-ownGoals
-playmakers
-points
-poolShots
-possibleExterminations
-saves
-saviors
-shootingPercentage
-shots
-swishs
-opponentAerialGoals
-opponentAssists
-opponentBackwardsGoals
-opponentBicycleGoals
-opponentBicycleHits
-opponentCenters
-opponentClears
-opponentDamages
-opponentDeaths
-opponentDemolitions
-opponentEpicSaves
-opponentExterminations
-opponentFirstTouchs
-opponentGames
-opponentGoals
-opponentHatTricks
-opponentHighFives
-opponentKO_AerialHeavyHit
-opponentKO_AerialLightHit
-opponentKO_BlockTaken
-opponentKO_Death
-opponentKO_DoubleKO
-opponentKO_Grabbed
-opponentKO_HeavyBlock
-opponentKO_HeavyHit
-opponentKO_HitTaken
-opponentKO_Knockout
-opponentKO_KnockoutAssist
-opponentKO_LightBlock
-opponentKO_LightHit
-opponentKO_PlayerGrabbed
-opponentKO_PlayerThrown
-opponentKO_Thrown
-opponentKO_Winner
-opponentLongGoals
-opponentLosses
-opponentLowFives
-opponentMvps
-opponentOvertimeGoals
-opponentOwnGoals
-opponentPlaymakers
-opponentPoints
-opponentPoolShots
-opponentSaves
-opponentSaviors
-opponentShots
-opponentSwishs
-opponentTotalSaves
-opponentTurtleGoals
-opponentUltraDamages
-opponentWins
-teamAerialGoals
-teamAssists
-teamBackwardsGoals
-teamBicycleGoals
-teamBicycleHits
-teamCenters
-teamClears
-teamDamages
-teamDeaths
-teamDemolitions
-teamEpicSaves
-teamExterminations
-teamFirstTouchs
-teamGames
-teamGoals
-teamHatTricks
-teamHighFives
-teamKO_AerialHeavyHit
-teamKO_AerialLightHit
-teamKO_BlockTaken
-teamKO_Death
-teamKO_DoubleKO
-teamKO_Grabbed
-teamKO_HeavyBlock
-teamKO_HeavyHit
-teamKO_HitTaken
-teamKO_Knockout
-teamKO_KnockoutAssist
-teamKO_LightBlock
-teamKO_LightHit
-teamKO_PlayerGrabbed
-teamKO_PlayerThrown
-teamKO_Thrown
-teamKO_Winner
-teamLongGoals
-teamLosses
-teamLowFives
-teamMvps
-teamOvertimeGoals
-teamOwnGoals
-teamPlaymakers
-teamPoints
-teamPoolShots
-teamSaves
-teamSaviors
-teamShots
-teamSwishs
-teamTotalSaves
-teamTurtleGoals
-teamUltraDamages
-teamWins
-timePlayed
-totalSaves
-turtleGoals
-ultraDamages
-winPercent
-wins
+# OBSCounter Stat Reference Scope
+
+This file is a scoped inventory of OBSCounter-inspired stat names. It is not a
+list of generated files, browser feed fields, or promised future output.
+
+Use this page when deciding whether an older OBSCounter-style name should be
+implemented here. Current generated output remains documented in:
+
+- `docs/integrations/text-file-output.md`
+- `docs/integrations/obs-python-script.md`
+- `docs/web-overlay-layout.md`
+- `docs/data-contracts.md`
+
+## Status Labels
+
+| Status | Meaning |
+| --- | --- |
+| Current | Implemented by this project as a text file, `overlay_state.json` / `/state.json` field, or browser-overlay value. |
+| Current input alias | Accepted from live StatsAPI player stats and normalized into a current field. |
+| Snapshot input only | May be stored when it appears in `.data/player.yml`, but it is not a current overlay/output contract. |
+| Derived presentation | Calculated by the browser overlay from current fields, but not emitted under the OBSCounter field name. |
+| Reference only | Prior-art field name only. No current source, storage contract, output file, or browser field is promised. |
+
+The coverage is rule-based: every raw name from the previous list inherits the
+first matching status below. A name is current only when it is explicitly listed
+under Current Scope or Derived Presentation Scope.
+
+The snapshot importer flattens `player.yml` `Stats` entries into SQLite, so an
+unknown career stat can be preserved if it appears in local data. That storage
+behavior alone does not make the stat current overlay scope.
+
+## Current Scope
+
+### Live Match / Freeplay Stats
+
+These live player-stat aliases are current inputs. They normalize to
+`match.stats`, session counters after a winner-bearing `MatchEnded`, career
+increments where applicable, and browser-overlay values.
+
+| Normalized field | Current input aliases |
+| --- | --- |
+| `goals` | `gameGoals`, `GameGoals`, `game_goals`, `Goals`, `goals` |
+| `assists` | `gameAssists`, `GameAssists`, `game_assists`, `Assists`, `assists` |
+| `saves` | `gameSaves`, `GameSaves`, `game_saves`, `Saves`, `saves` |
+| `shots` | `gameShots`, `GameShots`, `game_shots`, `Shots`, `shots` |
+| `low_fives` | `gameLowFives`, `GameLowFives`, `game_low_fives`, `LowFives`, `lowFives`, `low_fives` |
+| `high_fives` | `gameHighFives`, `GameHighFives`, `game_high_fives`, `HighFives`, `highFives`, `high_fives` |
+| `demos` | `gameDemolitions`, `GameDemolitions`, `gameDemos`, `GameDemos`, `Demos`, `Demolitions`, `demos` |
+| `deaths` | `gameDeaths`, `GameDeaths`, `Deaths`, `deaths`, `TimesDemolished`, `timesDemolished` |
+
+Current text-file outputs for these fields are intentionally narrower than the
+browser feed: session and lifetime text files exist for low fives, high fives,
+demolitions, and deaths. The browser overlay also shows match/session/average
+values for goals, assists, saves, shots, deaths, and KD.
+
+### Current Non-OBSCounter Outputs
+
+These are current project outputs even though they do not come from the raw
+OBSCounter stat list:
+
+- Basic socket files: `clock.txt`, `score_blue.txt`, `score_orange.txt`,
+  `event_name.txt`, `event_banner.txt`.
+- Session files: `session_wins.txt`, `session_losses.txt`,
+  `session_streak.txt`.
+- MMR, club, and Deja-Vu files: `recent_mmr.txt`, `club_name.txt`,
+  `club_record.txt`, `dejavu_players.txt`.
+- Speed files: `last_goal_speed.txt`, `replay_last_goal.txt`,
+  `freeplay_last_shot.txt`, `freeplay_session_best.txt`,
+  `freeplay_all_time_best.txt`, `freeplay_avg_last_10.txt`.
+- Structured files/feeds: `overlay_state.json`, `/state.json`, `/layout.json`.
+
+## Derived Presentation Scope
+
+These concepts are current only as derived browser-overlay presentation, not as
+OBSCounter-named files or feed fields:
+
+| OBSCounter-style name | Current project behavior |
+| --- | --- |
+| `gameKDRatio`, `KDRatio` | Browser overlay derives KD from demolitions/deaths. |
+| `averageGoals`, `averageAssists`, `averageSaves`, `averageShots`, `averageDeaths` | Browser overlay derives per-completed-match averages for current stats. |
+| `averageDemolitions`, `averageDemos`, `averageKDRatio` | Browser overlay derives KD and average-style values from current demolitions/deaths, but does not expose these names. |
+| `winPercent` | Browser menu derives session win rate from session wins/losses; no `winPercent` output exists. |
+| `games` | Completed session games are implied by session wins + losses; no `games.txt` output exists. |
+
+## Snapshot-Only Families
+
+These field families are referenceable as imported local snapshot data when they
+exist under `.data/player.yml`, but they are not current runtime overlay scope:
+
+| Family | Status | Notes |
+| --- | --- | --- |
+| Bare career totals such as `points`, `centers`, `clears`, `epicSaves`, `exterminations`, `hatTricks`, `longGoals`, `mvps`, `ownGoals`, `playmakers`, `saviors`, `timePlayed`, and similar names | Snapshot input only | Stored from snapshots if present. Not updated from live match completion unless listed in Current Scope. |
+| `AverageCareer*` | Snapshot input only | Imported as historical snapshot values only. No project average contract is based on these names. |
+| `CasualCareer*`, `PrivateCareer*`, `RankedCareer*`, `TotalCareer*` | Snapshot input only | Imported as local data if present. The current overlay does not present playlist-split career tables. |
+
+## Reference-Only Families
+
+Every raw OBSCounter name in these families is out of current implementation
+scope unless it also appears in the Current Scope table above.
+
+| Family | Status | Reason |
+| --- | --- | --- |
+| `team*`, `opponent*` | Reference only | The current project tracks the local player's stats and team scores, not full team/opponent stat aggregates. |
+| `KO_*`, `gameKO_*`, `averageKO_*`, `*Career_KO_*` | Reference only | Knockout-mode stat families have no current source/output contract. |
+| `breakout*`, `damages`, `ultraDamages` | Reference only | Special-mode damage counters are not current overlay fields. |
+| `swishs`, `HoopsSwishGoals`, `poolShots`, `freezeSaves`, `juggleHits` | Reference only | Mode-specific accolade counters are not current overlay fields. |
+| `aerialHits`, `ballHits`, `boostPickups`, `carTouches`, `fewest*`, `most*` | Reference only | These are not used by current match/session/lifetime outputs. |
+| `backwardsGoals`, `bicycleGoals`, `bicycleHits`, `firstTouchs`, `overtimeGoals`, `turtleGoals` | Reference only | Accolade-style counters are not current overlay fields. |
+| `offenseTime`, `defenseTime`, `totalSaves`, `shootingPercentage`, `missedExterminationPercent`, `possibleExterminations` | Reference only | No current calculation or output contract exists for these names. |
+| Broad `average*` names not listed under Derived Presentation Scope | Reference only | The project does not expose the OBSCounter average namespace. |
+| `losses`, `wins` as lifetime/career OBSCounter files | Reference only | The project currently exposes session wins/losses and snapshot MMR/record data, not OBSCounter-compatible lifetime win/loss files. |
+
+## Promoting A Reference Field
+
+Before moving any reference-only name into current scope:
+
+1. Confirm the field is present in live StatsAPI payloads or a documented
+   `.data` snapshot source.
+2. Decide whether it is live match state, completed-session state, career state,
+   text-file output, browser feed output, or OBS-script-only output.
+3. Add tests for the data source, output contract, and lifecycle boundary. Match
+   stats can update live; session/lifetime stats should roll forward only after
+   a winner-bearing `MatchEnded`.
+4. Update the relevant integration docs and this reference page.

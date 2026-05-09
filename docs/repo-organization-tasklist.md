@@ -1,7 +1,7 @@
 # Repository Organization Tasklist
 
 Created: 2026-05-09 (UTC)
-Status: Execution started; architecture, integration, wrapper, media asset, test-suite, and data contract documentation completed.
+Status: Execution started; architecture, integration, wrapper, reference-pruning, media asset, test-suite, and data contract documentation completed.
 
 ## Objectives
 - Reduce duplicated entry points and stale compatibility layers.
@@ -36,11 +36,11 @@ Completed 2026-05-09 UTC in `docs/architecture.md`, `docs/integrations/*.md`, an
 Completed 2026-05-09 UTC under `docs/integrations/`. The Windows WebView page keeps the operational workflow in docs while leaving implementation/build details in `integrations/windows-webview-host/README.md`.
 
 ### 4) Prune outdated references and legacy terminology
-- [ ] Review `docs/reference/obscounter-stats.txt` and annotate whether each item is still in scope.
-- [ ] Remove or clearly mark aspirational/unfinished features in docs to reduce confusion.
+- [x] Review `docs/reference/obscounter-stats.txt` and annotate whether each item is still in scope.
+- [x] Remove or clearly mark aspirational/unfinished features in docs to reduce confusion.
 - [x] Check for stale commands/flags in README examples vs actual CLI help output.
 
-Partially completed 2026-05-09 UTC: README command examples were checked against `.venv/bin/python listen.py --help` while consolidating architecture/integration docs. The OBSCounter reference and broader aspirational feature pruning remain open.
+Completed 2026-05-09 UTC in `docs/reference/obscounter-stats.txt`, `README.md`, and `docs/web-overlay-layout.md`. The OBSCounter reference is now a scoped prior-art inventory with current, input-only, derived, snapshot-only, and reference-only categories. Roadmap-only scoreboard layout notes are explicitly marked as non-current overlay behavior. README command examples were checked against `.venv/bin/python listen.py --help` during the earlier architecture/integration docs pass.
 
 ### 5) Reorganize media assets for maintainability
 - [x] Establish a documented naming convention for `media/icons/**`.
